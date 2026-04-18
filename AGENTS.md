@@ -10,3 +10,7 @@
 - `.md` files are ignored when counting files in a folder. keep each folder at 10 code files or fewer where practical, and create a new folder before feature growth makes a folder hard to scan.
 - always verify code changes by running the relevant frontend checks and a Rust sanity check before finalizing.
 - never worry about backward compatibility or legacy functionality. always assume everyone has up to date files.
+- never assume, if something is ambiguous then ask!
+- always repeat to me what i ask to make sure we are on the same page before doing any changes
+- make sure every function and functionality has a test and that all tests pass
+- whith any change update the changlog

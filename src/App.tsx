@@ -2,14 +2,10 @@ import { useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { useChatStore } from "./store/chatStore";
-import { Provider } from "./types";
+import { MessageDoneEvent, MessageErrorEvent, Provider, StreamChunkEvent } from "./types";
 import Sidebar from "./components/Sidebar";
 import ChatView from "./components/ChatView";
 import InputBar from "./components/InputBar";
-
-interface StreamChunk { session_uuid: string; text: string; }
-interface MessageDone { session_uuid: string; full_text: string; cli_session_id: string; }
-interface MessageError { session_uuid: string; error: string; }
 
 export default function App() {
   const store = useChatStore();
@@ -18,19 +14,24 @@ export default function App() {
 
   useEffect(() => {
     const setup = async () => {
-      const u1 = await listen<StreamChunk>("stream-chunk", ({ payload }) => {
+      const u1 = await listen<StreamChunkEvent>("stream-chunk", ({ payload }) => {
         store.updateLastAssistant(payload.session_uuid, payload.text);
       });
-      const u2 = await listen<MessageDone>("message-done", ({ payload }) => {
+      const u2 = await listen<MessageDoneEvent>("message-done", ({ payload }) => {
         store.finalizeAssistant(payload.session_uuid, payload.full_text, payload.cli_session_id);
         store.updateSessionTitle(payload.session_uuid);
       });
-      const u3 = await listen<MessageError>("message-error", ({ payload }) => {
-        store.finalizeAssistant(payload.session_uuid, `Error: ${payload.error}`, "");
+      const u3 = await listen<MessageErrorEvent>("message-error", ({ payload }) => {
+        const errorText = payload.partial_text
+          ? `${payload.partial_text}\n\nError: ${payload.error}`
+          : `Error: ${payload.error}`;
+        store.finalizeAssistant(payload.session_uuid, errorText, "");
       });
       unlistenRef.current = [u1, u2, u3];
     };
-    setup();
+    setup().catch((error) => {
+      console.error("Failed to bind Tauri event listeners", error);
+    });
     return () => { unlistenRef.current.forEach((u) => u()); };
   }, []);
 
@@ -65,12 +66,19 @@ export default function App() {
         cliSessionId: sess.cliSessionId || null,
       });
     } catch (e) {
-      store.finalizeAssistant(sess.id, `Error: ${e}`, "");
+      store.finalizeAssistant(sess.id, `Error: ${formatError(e)}`, "");
     }
   }
 
-  function handleCancel() {
-    // TODO: implement via cancel_message Tauri command
+  async function handleCancel() {
+    const sess = store.activeSession();
+    if (!sess?.isStreaming) return;
+
+    try {
+      await invoke("cancel_message", { sessionUuid: sess.id });
+    } catch (e) {
+      store.finalizeAssistant(sess.id, `Error: ${formatError(e)}`, "");
+    }
   }
 
   return (
@@ -92,4 +100,8 @@ export default function App() {
       </div>
     </div>
   );
+}
+
+function formatError(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
 }

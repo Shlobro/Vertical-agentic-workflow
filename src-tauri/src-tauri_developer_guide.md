@@ -13,5 +13,5 @@
 
 ## Runtime Role
 - The frontend never shells out directly. All provider execution goes through Tauri commands.
-- This folder is responsible for process spawning, stdout parsing, and event emission back into the window.
+- This folder is responsible for process spawning, active child-process tracking, stdout/stderr parsing, provider timeouts, and event emission back into the window.
 - Keep generated Cargo and Tauri artifacts out of version control.

@@ -29,7 +29,7 @@ export default function MessageBubble({ message }: Props) {
         ) : (
           <>
             {message.text}
-            {message.streaming && <span className="animate-pulse ml-1">▋</span>}
+            {message.streaming && <span className="animate-pulse ml-1" aria-hidden="true">|</span>}
           </>
         )}
       </div>

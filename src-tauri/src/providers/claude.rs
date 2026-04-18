@@ -1,11 +1,17 @@
 pub struct ClaudeProvider;
 
 impl ClaudeProvider {
-    pub fn build_command(model: &str, session_id: Option<&str>, prompt: &str) -> (String, Vec<String>) {
+    pub fn build_command(
+        model: &str,
+        session_id: Option<&str>,
+        prompt: &str,
+    ) -> (String, Vec<String>) {
         let mut args = vec![
             "--dangerously-skip-permissions".to_string(),
+            "--print".to_string(),
             "--output-format".to_string(),
-            "json".to_string(),
+            "stream-json".to_string(),
+            "--include-partial-messages".to_string(),
         ];
         if !model.is_empty() {
             args.push("--model".to_string());
@@ -17,7 +23,6 @@ impl ClaudeProvider {
                 args.push(sid.to_string());
             }
         }
-        args.push("-p".to_string());
         args.push(prompt.to_string());
         ("claude".to_string(), args)
     }
@@ -36,6 +41,22 @@ impl ClaudeProvider {
             }
         }
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ClaudeProvider;
+
+    #[test]
+    fn build_command_enables_streaming_output() {
+        let (_, args) =
+            ClaudeProvider::build_command("claude-sonnet-4-6", Some("session-1"), "hello");
+
+        assert!(args.contains(&"--print".to_string()));
+        assert!(args.contains(&"stream-json".to_string()));
+        assert!(args.contains(&"--include-partial-messages".to_string()));
+        assert!(args.contains(&"--resume".to_string()));
     }
 }
 

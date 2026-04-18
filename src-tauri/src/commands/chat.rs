@@ -1,10 +1,23 @@
-use std::process::Stdio;
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
+use std::process::{ExitStatus, Stdio};
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+use tauri::{AppHandle, Emitter, State};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
-use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter};
+use tokio::sync::Mutex as AsyncMutex;
 
 use crate::providers::{ClaudeProvider, CodexProvider};
+
+type SharedChild = Arc<AsyncMutex<tokio::process::Child>>;
+const PROVIDER_TIMEOUT: Duration = Duration::from_secs(600);
+
+#[derive(Clone, Default)]
+pub struct ActiveProcesses {
+    children: Arc<Mutex<HashMap<String, SharedChild>>>,
+    cancelled: Arc<Mutex<HashSet<String>>>,
+}
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct StreamChunk {
@@ -19,112 +32,490 @@ pub struct MessageDone {
     pub cli_session_id: String,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+pub struct MessageError {
+    pub session_uuid: String,
+    pub error: String,
+    pub partial_text: String,
+}
+
+impl ActiveProcesses {
+    fn insert(&self, session_uuid: String, child: SharedChild) {
+        let mut children = self.children.lock().unwrap();
+        children.insert(session_uuid, child);
+    }
+
+    fn get(&self, session_uuid: &str) -> Option<SharedChild> {
+        let children = self.children.lock().unwrap();
+        children.get(session_uuid).cloned()
+    }
+
+    fn remove(&self, session_uuid: &str) {
+        let mut children = self.children.lock().unwrap();
+        children.remove(session_uuid);
+    }
+
+    fn mark_cancelled(&self, session_uuid: &str) {
+        let mut cancelled = self.cancelled.lock().unwrap();
+        cancelled.insert(session_uuid.to_string());
+    }
+
+    fn take_cancelled(&self, session_uuid: &str) -> bool {
+        let mut cancelled = self.cancelled.lock().unwrap();
+        cancelled.remove(session_uuid)
+    }
+}
+
 #[tauri::command]
 pub async fn send_message(
     app: AppHandle,
+    processes: State<'_, ActiveProcesses>,
     session_uuid: String,
     provider: String,
     model: String,
     prompt: String,
     cli_session_id: Option<String>,
 ) -> Result<(), String> {
+    let processes = processes.inner().clone();
     let (exe, args) = match provider.as_str() {
         "claude" => ClaudeProvider::build_command(&model, cli_session_id.as_deref(), &prompt),
         "codex" => CodexProvider::build_command(&model, cli_session_id.as_deref(), &prompt),
         _ => return Err(format!("Unknown provider: {provider}")),
     };
 
-    let mut child = Command::new(&exe)
+    let child = Command::new(&exe)
         .args(&args)
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
+        .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| format!("Failed to spawn {exe}: {e}"))?;
 
-    let stdout = child.stdout.take().unwrap();
+    let child = Arc::new(AsyncMutex::new(child));
+    let (stdout, stderr) = {
+        let mut child_guard = child.lock().await;
+        let stdout = child_guard
+            .stdout
+            .take()
+            .ok_or_else(|| format!("{exe} stdout pipe was not available"))?;
+        let stderr = child_guard
+            .stderr
+            .take()
+            .ok_or_else(|| format!("{exe} stderr pipe was not available"))?;
+        (stdout, stderr)
+    };
+
+    processes.insert(session_uuid.clone(), child.clone());
 
     tokio::spawn(async move {
-        let mut reader = BufReader::new(stdout).lines();
+        let stdout_task = tokio::spawn(read_stdout(
+            app.clone(),
+            session_uuid.clone(),
+            provider.clone(),
+            stdout,
+        ));
+        let stderr_task = tokio::spawn(read_stderr(stderr));
 
-        let mut full_output = String::new();
-        let mut found_cli_session_id = String::new();
-        let mut latest_text = String::new();
+        let exit_status = wait_for_child(child, PROVIDER_TIMEOUT).await;
+        let stdout_result = stdout_task.await;
+        let stderr_result = stderr_task.await;
 
-        while let Ok(Some(line)) = reader.next_line().await {
-            full_output.push_str(&line);
-            full_output.push('\n');
+        processes.remove(&session_uuid);
 
-            // Extract session ID from each line
-            let sid = match provider.as_str() {
-                "claude" => ClaudeProvider::extract_session_id(&line),
-                "codex" => CodexProvider::extract_session_id(&line),
-                _ => None,
-            };
-            if let Some(s) = sid {
-                if !s.is_empty() { found_cli_session_id = s; }
+        let cancelled = processes.take_cancelled(&session_uuid);
+
+        match finalize_message(
+            stdout_result,
+            stderr_result,
+            exit_status,
+            &provider,
+            cancelled,
+        ) {
+            Ok(done) => {
+                let _ = app.emit(
+                    "message-done",
+                    MessageDone {
+                        session_uuid,
+                        full_text: done.full_text,
+                        cli_session_id: done.cli_session_id,
+                    },
+                );
             }
-
-            // Extract and stream text chunks
-            if let Some(text) = try_extract_stream_text(&line) {
-                if !text.is_empty() {
-                    latest_text = text.clone();
-                    let _ = app.emit("stream-chunk", StreamChunk {
-                        session_uuid: session_uuid.clone(),
-                        text,
-                    });
-                }
+            Err(error) => {
+                let _ = app.emit(
+                    "message-error",
+                    MessageError {
+                        session_uuid,
+                        error: error.error,
+                        partial_text: error.partial_text,
+                    },
+                );
             }
         }
-
-        // If no streaming text was found, try full output
-        if latest_text.is_empty() {
-            latest_text = match provider.as_str() {
-                "claude" => ClaudeProvider::extract_text(&full_output).unwrap_or_default(),
-                "codex" => CodexProvider::extract_text(&full_output).unwrap_or_default(),
-                _ => full_output.clone(),
-            };
-        }
-
-        if found_cli_session_id.is_empty() {
-            found_cli_session_id = match provider.as_str() {
-                "claude" => ClaudeProvider::extract_session_id(&full_output).unwrap_or_default(),
-                "codex" => CodexProvider::extract_session_id(&full_output).unwrap_or_default(),
-                _ => String::new(),
-            };
-        }
-
-        let _ = app.emit("message-done", MessageDone {
-            session_uuid,
-            full_text: latest_text,
-            cli_session_id: found_cli_session_id,
-        });
     });
 
     Ok(())
 }
 
+#[tauri::command]
+pub async fn cancel_message(
+    processes: State<'_, ActiveProcesses>,
+    session_uuid: String,
+) -> Result<(), String> {
+    let Some(child) = processes.get(&session_uuid) else {
+        return Ok(());
+    };
+
+    processes.mark_cancelled(&session_uuid);
+
+    let mut child_guard = child.lock().await;
+    child_guard
+        .kill()
+        .await
+        .map_err(|e| format!("Failed to cancel message: {e}"))
+}
+
+struct StreamState {
+    full_output: String,
+    streamed_text: String,
+    cli_session_id: String,
+}
+
+struct FinalMessage {
+    full_text: String,
+    cli_session_id: String,
+}
+
+struct FinalError {
+    error: String,
+    partial_text: String,
+}
+
+enum WaitError {
+    Process(String),
+    TimedOut(Duration),
+}
+
+async fn read_stdout(
+    app: AppHandle,
+    session_uuid: String,
+    provider: String,
+    stdout: tokio::process::ChildStdout,
+) -> Result<StreamState, String> {
+    let mut reader = BufReader::new(stdout).lines();
+    let mut state = StreamState {
+        full_output: String::new(),
+        streamed_text: String::new(),
+        cli_session_id: String::new(),
+    };
+
+    loop {
+        match reader.next_line().await {
+            Ok(Some(line)) => {
+                state.full_output.push_str(&line);
+                state.full_output.push('\n');
+
+                if let Some(session_id) = extract_session_id(&provider, &line) {
+                    if !session_id.is_empty() {
+                        state.cli_session_id = session_id;
+                    }
+                }
+
+                if let Some(text) = try_extract_stream_text(&line) {
+                    state.streamed_text = merge_stream_text(&state.streamed_text, &text);
+                    let _ = app.emit(
+                        "stream-chunk",
+                        StreamChunk {
+                            session_uuid: session_uuid.clone(),
+                            text: state.streamed_text.clone(),
+                        },
+                    );
+                }
+            }
+            Ok(None) => return Ok(state),
+            Err(error) => return Err(format!("Failed to read provider output: {error}")),
+        }
+    }
+}
+
+async fn read_stderr(stderr: tokio::process::ChildStderr) -> Result<String, String> {
+    let mut reader = BufReader::new(stderr).lines();
+    let mut output = String::new();
+
+    loop {
+        match reader.next_line().await {
+            Ok(Some(line)) => {
+                if !output.is_empty() {
+                    output.push('\n');
+                }
+                output.push_str(&line);
+            }
+            Ok(None) => return Ok(output),
+            Err(error) => return Err(format!("Failed to read provider stderr: {error}")),
+        }
+    }
+}
+
+async fn wait_for_child(child: SharedChild, timeout: Duration) -> Result<ExitStatus, WaitError> {
+    let mut child_guard = child.lock().await;
+    match tokio::time::timeout(timeout, child_guard.wait()).await {
+        Ok(result) => result.map_err(|error| {
+            WaitError::Process(format!(
+                "Failed while waiting for provider process: {error}"
+            ))
+        }),
+        Err(_) => {
+            child_guard.kill().await.map_err(|error| {
+                WaitError::Process(format!(
+                    "Failed to terminate timed out provider process: {error}"
+                ))
+            })?;
+            let _ = child_guard.wait().await;
+            Err(WaitError::TimedOut(timeout))
+        }
+    }
+}
+
+fn finalize_message(
+    stdout_result: Result<Result<StreamState, String>, tokio::task::JoinError>,
+    stderr_result: Result<Result<String, String>, tokio::task::JoinError>,
+    exit_status: Result<ExitStatus, WaitError>,
+    provider: &str,
+    cancelled: bool,
+) -> Result<FinalMessage, FinalError> {
+    let state = stdout_result
+        .map_err(|error| FinalError {
+            error: format!("Provider output task crashed: {error}"),
+            partial_text: String::new(),
+        })?
+        .map_err(|error| FinalError {
+            error,
+            partial_text: String::new(),
+        })?;
+
+    let stderr = stderr_result
+        .map_err(|error| FinalError {
+            error: format!("Provider stderr task crashed: {error}"),
+            partial_text: state.streamed_text.clone(),
+        })?
+        .map_err(|error| FinalError {
+            error,
+            partial_text: state.streamed_text.clone(),
+        })?;
+
+    let status = exit_status.map_err(|error| FinalError {
+        error: format_wait_error(error),
+        partial_text: state.streamed_text.clone(),
+    })?;
+
+    let full_text = finalize_text(provider, &state);
+    let cli_session_id = finalize_session_id(provider, &state);
+
+    if status.success() {
+        return Ok(FinalMessage {
+            full_text,
+            cli_session_id,
+        });
+    }
+
+    if cancelled {
+        return Err(FinalError {
+            error: "Request cancelled".to_string(),
+            partial_text: full_text,
+        });
+    }
+
+    let error = if stderr.trim().is_empty() {
+        format!("Provider exited with status {status}")
+    } else {
+        stderr.trim().to_string()
+    };
+
+    Err(FinalError {
+        error,
+        partial_text: full_text,
+    })
+}
+
+fn finalize_text(provider: &str, state: &StreamState) -> String {
+    if !state.streamed_text.is_empty() {
+        return state.streamed_text.clone();
+    }
+
+    match provider {
+        "claude" => ClaudeProvider::extract_text(&state.full_output).unwrap_or_default(),
+        "codex" => CodexProvider::extract_text(&state.full_output).unwrap_or_default(),
+        _ => state.full_output.clone(),
+    }
+}
+
+fn finalize_session_id(provider: &str, state: &StreamState) -> String {
+    if !state.cli_session_id.is_empty() {
+        return state.cli_session_id.clone();
+    }
+
+    extract_session_id(provider, &state.full_output).unwrap_or_default()
+}
+
+fn extract_session_id(provider: &str, json_str: &str) -> Option<String> {
+    match provider {
+        "claude" => ClaudeProvider::extract_session_id(json_str),
+        "codex" => CodexProvider::extract_session_id(json_str),
+        _ => None,
+    }
+}
+
+fn merge_stream_text(existing: &str, incoming: &str) -> String {
+    if incoming.is_empty() {
+        return existing.to_string();
+    }
+    if existing.is_empty() || incoming.starts_with(existing) {
+        return incoming.to_string();
+    }
+    if existing.ends_with(incoming) {
+        return existing.to_string();
+    }
+
+    for overlap in incoming
+        .char_indices()
+        .map(|(idx, _)| idx)
+        .chain(std::iter::once(incoming.len()))
+        .filter(|idx| *idx > 0)
+        .rev()
+    {
+        if existing.ends_with(&incoming[..overlap]) {
+            let mut merged = existing.to_string();
+            merged.push_str(&incoming[overlap..]);
+            return merged;
+        }
+    }
+
+    let mut merged = existing.to_string();
+    merged.push_str(incoming);
+    merged
+}
+
 fn try_extract_stream_text(line: &str) -> Option<String> {
     let val: serde_json::Value = serde_json::from_str(line).ok()?;
-    // Claude streaming: message with content array
-    if let Some(msg) = val.get("message") {
-        if let Some(content) = msg.get("content") {
-            if let Some(arr) = content.as_array() {
-                for item in arr {
-                    if item.get("type").and_then(|t| t.as_str()) == Some("text") {
-                        if let Some(text) = item.get("text").and_then(|t| t.as_str()) {
-                            if !text.is_empty() {
-                                return Some(text.to_string());
-                            }
-                        }
+    extract_text_from_value(&val)
+}
+
+fn extract_text_from_value(val: &serde_json::Value) -> Option<String> {
+    if let Some(text) = val.get("partial_message").and_then(|item| item.as_str()) {
+        if !text.is_empty() {
+            return Some(text.to_string());
+        }
+    }
+
+    if let Some(text) = val.get("text").and_then(|item| item.as_str()) {
+        if !text.is_empty() {
+            return Some(text.to_string());
+        }
+    }
+
+    if let Some(text) = val
+        .get("delta")
+        .and_then(|delta| delta.get("text"))
+        .and_then(|item| item.as_str())
+    {
+        if !text.is_empty() {
+            return Some(text.to_string());
+        }
+    }
+
+    if let Some(content) = val
+        .get("message")
+        .and_then(|message| message.get("content"))
+        .and_then(|content| content.as_array())
+    {
+        for item in content {
+            if item.get("type").and_then(|t| t.as_str()) == Some("text") {
+                if let Some(text) = item.get("text").and_then(|t| t.as_str()) {
+                    if !text.is_empty() {
+                        return Some(text.to_string());
                     }
                 }
             }
         }
     }
-    // Final result field (both providers)
-    if let Some(result) = val.get("result") {
-        let s = result.as_str().unwrap_or("").to_string();
-        if !s.is_empty() { return Some(s); }
+
+    if let Some(content) = val.get("content").and_then(|content| content.as_array()) {
+        for item in content {
+            if let Some(text) = extract_text_from_value(item) {
+                return Some(text);
+            }
+        }
     }
+
     None
+}
+
+fn format_wait_error(error: WaitError) -> String {
+    match error {
+        WaitError::Process(message) => message,
+        WaitError::TimedOut(timeout) => {
+            format!("Provider timed out after {} seconds", timeout.as_secs())
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        finalize_text, format_wait_error, merge_stream_text, try_extract_stream_text, StreamState,
+        WaitError,
+    };
+    use std::time::Duration;
+
+    #[test]
+    fn merge_stream_text_appends_incremental_chunks() {
+        let merged = merge_stream_text("Hello", " world");
+        assert_eq!(merged, "Hello world");
+    }
+
+    #[test]
+    fn merge_stream_text_keeps_cumulative_snapshot() {
+        let merged = merge_stream_text("Hello", "Hello world");
+        assert_eq!(merged, "Hello world");
+    }
+
+    #[test]
+    fn merge_stream_text_avoids_duplicate_overlap() {
+        let merged = merge_stream_text("Hello wor", "world");
+        assert_eq!(merged, "Hello world");
+    }
+
+    #[test]
+    fn merge_stream_text_handles_unicode_overlap() {
+        let merged = merge_stream_text("שלום עול", "עולם");
+        assert_eq!(merged, "שלום עולם");
+    }
+
+    #[test]
+    fn extracts_claude_stream_text() {
+        let line = r#"{"message":{"content":[{"type":"text","text":"hello"}]}}"#;
+        assert_eq!(try_extract_stream_text(line).as_deref(), Some("hello"));
+    }
+
+    #[test]
+    fn extracts_claude_partial_message_text() {
+        let line = r#"{"type":"assistant","partial_message":"hello"}"#;
+        assert_eq!(try_extract_stream_text(line).as_deref(), Some("hello"));
+    }
+
+    #[test]
+    fn finalize_text_falls_back_to_provider_result() {
+        let state = StreamState {
+            full_output: "{\"result\":\"done\"}\n".to_string(),
+            streamed_text: String::new(),
+            cli_session_id: String::new(),
+        };
+
+        assert_eq!(finalize_text("claude", &state), "done");
+    }
+
+    #[test]
+    fn formats_timeout_errors() {
+        let message = format_wait_error(WaitError::TimedOut(Duration::from_secs(42)));
+        assert_eq!(message, "Provider timed out after 42 seconds");
+    }
 }

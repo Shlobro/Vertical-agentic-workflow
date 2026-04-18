@@ -12,4 +12,5 @@
 ## Guardrails
 - Keep `lib.rs` small and declarative.
 - Put provider branching behind `commands/` and `providers/`, not in unrelated modules.
-- Treat stdout parsing as fragile integration code: small, explicit parsing helpers are easier to maintain than large generic abstractions.
+- Treat provider process lifecycle and stdout/stderr parsing as fragile integration code: small, explicit helpers are easier to maintain than large generic abstractions.
+- Keep Rust-side integration coverage close to command builders and stream parsers so CLI contract regressions fail under `cargo test`.

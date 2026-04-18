@@ -17,6 +17,23 @@ export interface ChatSession {
   isStreaming: boolean;
 }
 
+export interface StreamChunkEvent {
+  session_uuid: string;
+  text: string;
+}
+
+export interface MessageDoneEvent {
+  session_uuid: string;
+  full_text: string;
+  cli_session_id: string;
+}
+
+export interface MessageErrorEvent {
+  session_uuid: string;
+  error: string;
+  partial_text: string;
+}
+
 export const PROVIDERS: { id: Provider; label: string; logo: string }[] = [
   { id: "claude", label: "Claude Code", logo: "claude_logo.png" },
   { id: "codex", label: "Codex CLI", logo: "openai_logo.png" },

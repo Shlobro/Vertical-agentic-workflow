@@ -1,7 +1,11 @@
 pub struct CodexProvider;
 
 impl CodexProvider {
-    pub fn build_command(model: &str, session_id: Option<&str>, prompt: &str) -> (String, Vec<String>) {
+    pub fn build_command(
+        model: &str,
+        session_id: Option<&str>,
+        prompt: &str,
+    ) -> (String, Vec<String>) {
         let mut args = vec![
             "exec".to_string(),
             "--skip-git-repo-check".to_string(),
@@ -71,5 +75,20 @@ fn find_thread_id(val: &serde_json::Value) -> Option<String> {
             None
         }
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::CodexProvider;
+
+    #[test]
+    fn build_command_uses_exec_json_mode() {
+        let (_, args) =
+            CodexProvider::build_command("codex-mini-latest", Some("thread-1"), "hello");
+
+        assert_eq!(args[0], "exec");
+        assert!(args.contains(&"--json".to_string()));
+        assert!(args.contains(&"resume".to_string()));
     }
 }

@@ -35,7 +35,9 @@ export default function InputBar({ disabled, streaming, onSend, onCancel }: Prop
   return (
     <div className="px-4 py-3 border-t border-border bg-bg-primary">
       <div className="flex items-end gap-2 bg-surface rounded-xl border border-border px-3 py-2">
+        <label htmlFor="chat-input" className="sr-only">Message</label>
         <textarea
+          id="chat-input"
           ref={ref}
           rows={1}
           placeholder="Message..."
@@ -47,6 +49,7 @@ export default function InputBar({ disabled, streaming, onSend, onCancel }: Prop
         {streaming ? (
           <button
             onClick={onCancel}
+            aria-label="Cancel response"
             className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
           >
             <Square size={14} />
@@ -55,6 +58,7 @@ export default function InputBar({ disabled, streaming, onSend, onCancel }: Prop
           <button
             onClick={submit}
             disabled={disabled}
+            aria-label="Send message"
             className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             <Send size={14} />
@@ -62,7 +66,7 @@ export default function InputBar({ disabled, streaming, onSend, onCancel }: Prop
         )}
       </div>
       <p className="text-xs text-text-muted mt-1.5 text-center">
-        Enter to send · Shift+Enter for newline
+        Enter to send | Shift+Enter for newline
       </p>
     </div>
   );

@@ -5,8 +5,9 @@
 
 ## Current Store
 - `chatStore.ts`: Single Zustand store for chat sessions, active selection, streaming updates, and derived session titles.
+- `chatStore.test.ts`: Coverage for session creation plus assistant streaming/finalization transitions.
 
 ## State Rules
 - Every session is the source of truth for provider, model, transcript, CLI session id, and streaming status.
-- Stream updates currently target the last assistant message in a session. If streaming becomes more complex, keep ordering guarantees explicit.
+- Stream updates currently target the last assistant message in a session and expect `stream-chunk` payloads to contain the best known full assistant text. If streaming becomes more complex, keep ordering guarantees explicit.
 - Store actions should stay mutation-focused and synchronous. Async work belongs in components or dedicated service layers that call store actions.
