@@ -5,8 +5,10 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { useChatStore } from "./store/chatStore";
 import {
   ChatProject,
+  CompanionFileName,
   MessageDoneEvent,
   MessageErrorEvent,
+  MissingCompanionFilesState,
   PersistedWorkspaceState,
   Provider,
   StreamChunkEvent,
@@ -16,6 +18,7 @@ import Sidebar from "./components/Sidebar";
 import ChatView from "./components/ChatView";
 import ConfirmDialog from "./components/ConfirmDialog";
 import InputBar from "./components/InputBar";
+import MissingCompanionFilesDialog from "./components/MissingCompanionFilesDialog";
 
 type PendingDelete =
   | { kind: "project"; id: string }
@@ -25,6 +28,13 @@ type PendingDelete =
 const DEFAULT_SIDEBAR_WIDTH = 288;
 const MIN_SIDEBAR_WIDTH = 240;
 const MAX_SIDEBAR_WIDTH_RATIO = 0.75;
+const COMPANION_FILE_NAMES: CompanionFileName[] = ["CLAUDE.md", "AGENTS.md", "GEMINI.md"];
+
+interface CompanionDialogState {
+  workingDir: string;
+  missingFiles: CompanionFileName[];
+  selectedFiles: CompanionFileName[];
+}
 
 export default function App() {
   const store = useChatStore();
@@ -38,12 +48,21 @@ export default function App() {
   const [pendingDelete, setPendingDelete] = useState<PendingDelete>(null);
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
+  const [companionFileSelectionDefaults, setCompanionFileSelectionDefaults] =
+    useState<CompanionFileName[]>(COMPANION_FILE_NAMES);
+  const [companionDialogState, setCompanionDialogState] = useState<CompanionDialogState | null>(null);
   const sidebarResizeRef = useRef({ startX: 0, startWidth: DEFAULT_SIDEBAR_WIDTH });
   const sidebarWidthRatioRef = useRef(getSidebarWidthRatio(DEFAULT_SIDEBAR_WIDTH));
+  const companionFileSelectionDefaultsRef = useRef<CompanionFileName[]>(COMPANION_FILE_NAMES);
+  const companionDialogResolverRef = useRef<((shouldContinue: boolean) => void) | null>(null);
 
   useEffect(() => {
     sidebarWidthRatioRef.current = getSidebarWidthRatio(sidebarWidth);
   }, [sidebarWidth]);
+
+  useEffect(() => {
+    companionFileSelectionDefaultsRef.current = companionFileSelectionDefaults;
+  }, [companionFileSelectionDefaults]);
 
   function handleProviderChange(nextProvider: Provider) {
     const nextModel = MODELS[nextProvider][0].id;
@@ -70,6 +89,9 @@ export default function App() {
           const nextWidth = getSidebarWidthFromRatio(state.sidebarWidthRatio);
           setSidebarWidth(nextWidth);
           sidebarWidthRatioRef.current = getSidebarWidthRatio(nextWidth);
+        }
+        if (Array.isArray(state.companionFileSelectionDefaults)) {
+          setCompanionFileSelectionDefaults(state.companionFileSelectionDefaults);
         }
       } catch (error) {
         console.error("Failed to load persisted workspace state", error);
@@ -114,6 +136,7 @@ export default function App() {
         projects: useChatStore.getState().projects,
         activeSessionId: useChatStore.getState().activeSessionId,
         sidebarWidthRatio,
+        companionFileSelectionDefaults: companionFileSelectionDefaultsRef.current,
       }).catch((error) => {
         console.error("Failed to save workspace state", error);
       });
@@ -154,11 +177,12 @@ export default function App() {
         projects: useChatStore.getState().projects,
         activeSessionId: useChatStore.getState().activeSessionId,
         sidebarWidthRatio: sidebarWidthRatioRef.current,
+        companionFileSelectionDefaults,
       }).catch((error) => {
         console.error("Failed to save workspace state", error);
       });
     }, 150);
-  }, [sidebarWidth]);
+  }, [sidebarWidth, companionFileSelectionDefaults]);
 
   useEffect(() => {
     if (!isResizingSidebar) return;
@@ -207,6 +231,11 @@ export default function App() {
     try {
       const selected = await open({ directory: true, multiple: false });
       if (typeof selected === "string" && selected) {
+        const shouldContinue = await maybeHandleMissingCompanionFiles(selected);
+        if (!shouldContinue) {
+          return;
+        }
+
         const existingProject = store.findProjectByWorkingDir(selected);
         if (existingProject) {
           store.setActiveSession(existingProject.lastActiveSessionId ?? existingProject.sessions[0]?.id ?? null);
@@ -226,6 +255,26 @@ export default function App() {
     } catch (error) {
       console.error("Failed to open project directory picker", error);
     }
+  }
+
+  async function maybeHandleMissingCompanionFiles(workingDir: string) {
+    const { missingFiles } = await invoke<MissingCompanionFilesState>("check_missing_companion_files", {
+      workingDir,
+    });
+    if (missingFiles.length === 0) {
+      return true;
+    }
+
+    const rememberedSelections = companionFileSelectionDefaults.filter((fileName) => missingFiles.includes(fileName));
+
+    return new Promise<boolean>((resolve) => {
+      companionDialogResolverRef.current = resolve;
+      setCompanionDialogState({
+        workingDir,
+        missingFiles,
+        selectedFiles: rememberedSelections,
+      });
+    });
   }
 
   function handleNewChat(projectId: string) {
@@ -275,6 +324,46 @@ export default function App() {
 
   function handleCancelDelete() {
     setPendingDelete(null);
+  }
+
+  function handleCompanionSelectionToggle(fileName: CompanionFileName) {
+    setCompanionDialogState((current) => {
+      if (!current) return current;
+
+      const selectedFiles = current.selectedFiles.includes(fileName)
+        ? current.selectedFiles.filter((value) => value !== fileName)
+        : [...current.selectedFiles, fileName];
+
+      return { ...current, selectedFiles };
+    });
+  }
+
+  async function handleCompanionDialogContinue() {
+    if (!companionDialogState) return;
+
+    const selectedFiles = [...companionDialogState.selectedFiles];
+    setCompanionFileSelectionDefaults(selectedFiles);
+
+    try {
+      if (selectedFiles.length > 0) {
+        await invoke("create_missing_companion_files", {
+          workingDir: companionDialogState.workingDir,
+          fileNames: selectedFiles,
+        });
+      }
+
+      companionDialogResolverRef.current?.(true);
+      companionDialogResolverRef.current = null;
+      setCompanionDialogState(null);
+    } catch (error) {
+      console.error("Failed to create companion markdown files", error);
+    }
+  }
+
+  function handleCompanionDialogCancel() {
+    companionDialogResolverRef.current?.(false);
+    companionDialogResolverRef.current = null;
+    setCompanionDialogState(null);
   }
 
   async function handleSend(text: string) {
@@ -377,6 +466,14 @@ export default function App() {
         cancelLabel={pendingDeleteProject ? "Keep project" : "Keep chat"}
         onConfirm={handleConfirmDelete}
         onCancel={handleCancelDelete}
+      />
+      <MissingCompanionFilesDialog
+        open={companionDialogState !== null}
+        missingFiles={companionDialogState?.missingFiles ?? []}
+        selectedFiles={companionDialogState?.selectedFiles ?? []}
+        onToggle={handleCompanionSelectionToggle}
+        onContinue={handleCompanionDialogContinue}
+        onCancel={handleCompanionDialogCancel}
       />
     </div>
   );

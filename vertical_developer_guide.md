@@ -17,11 +17,11 @@ Vertical is a desktop chat client built with Tauri, React, TypeScript, and Rust.
 1. The app boots through Vite/Tauri. `src/main.tsx` mounts `App` and imports `src/styles/globals.css`.
 2. `src/App.tsx` loads persisted workspace state on mount, restores the saved sidebar width ratio when present, subscribes to Tauri events once on mount, and debounces autosave writes back through Tauri persistence commands. Event payload contracts live in `src/types/index.ts`.
 3. `Sidebar` creates or switches projects and chat sessions. `App.tsx` owns the shell-level sidebar width and drag lifecycle, persisting the sidebar as a viewport ratio and clamping the derived pixel width between a fixed minimum and 75% of the viewport, while `Sidebar` renders the resize separator plus the project tree. Each project stores its title, chosen working directory, collapse state, remembered last-active chat, and nested chat list. Each session stores provider, model, title, messages, streaming state, and the provider CLI session identifier.
-4. Choosing `New project` opens the directory picker first. If the selected folder already contains `.Vertical` state, the app loads it. Otherwise the store creates a project named after that folder and inserts one empty chat inside it.
+4. Choosing `New project` opens the directory picker first. After the user picks a folder, the app checks the selected project root for `CLAUDE.md`, `AGENTS.md`, and `GEMINI.md`. If any are missing, the shell opens an in-app checklist dialog, preselecting files from the last remembered choice, and can create the selected defaults before continuing. If the selected folder already contains `.Vertical` state, the app loads it. Otherwise the store creates a project named after that folder and inserts one empty chat inside it.
 5. `InputBar` is only rendered when a chat is selected. The selected chat session is the source of truth for its provider/model configuration, and changing either resets that session's saved provider CLI session id.
 6. Sending appends the user prompt and a placeholder assistant message into the Zustand store, then invokes the Rust command `send_message` with the selected chat plus the owning project's working directory.
 7. `src-tauri/src/commands/chat.rs` maps the provider string to a command builder, starts the external CLI process, tracks the running child per chat session, reads JSON from stdout plus diagnostics from stderr, applies a provider timeout, and emits normalized stream updates back to the frontend.
-8. `src-tauri/src/commands/persistence.rs` writes `.Vertical/project.json`, one file per chat under `.Vertical/chats/`, and an executable-adjacent `.Vertical/registry.json` that remembers known project folders, the last active project, and shell-level workspace preferences such as the persisted sidebar width ratio.
+8. `src-tauri/src/commands/persistence.rs` writes `.Vertical/project.json`, one file per chat under `.Vertical/chats/`, and an executable-adjacent `.Vertical/registry.json` that remembers known project folders, the last active project, shell-level workspace preferences such as the persisted sidebar width ratio, and the last chosen default set for companion markdown-file creation.
 9. As events arrive, the store updates the in-progress assistant message in place. Completion persists the provider CLI session id so later prompts can resume the same conversation, while failures and cancellations emit a dedicated error event.
 
 ## Current Frontend Shape
@@ -30,12 +30,14 @@ Vertical is a desktop chat client built with Tauri, React, TypeScript, and Rust.
 - `ChatView` handles three empty states: no active session, active session with no messages, and active session with transcript.
 - `MessageBubble` animates message entry and uses a typing indicator while the assistant placeholder is still empty.
 - `InputBar` handles enter-to-send, shift-enter newline, textarea auto-growth, provider/model selection, and cancellation of the active provider request. It stays hidden until a chat is selected.
+- The shell uses themed in-app dialogs for both destructive confirmations and the missing-companion-file checklist that appears immediately after a working directory is chosen.
 
 ## Current Native Shape
 - `src-tauri/src/lib.rs` wires Tauri, registers plugins, and exposes chat plus persistence commands.
 - `src-tauri/capabilities/default.json` grants the dialog open permission used by the working-directory picker and the fs mkdir permission used by existing filesystem flows.
 - Provider-specific command construction and JSON parsing live under `src-tauri/src/providers/`.
 - Persistence commands live under `src-tauri/src/commands/persistence.rs` and own on-disk workspace and project state.
+- Companion markdown-file inspection and optional creation also live under `src-tauri/src/commands/persistence.rs` so the frontend does not reimplement repo-root filesystem behavior.
 - Streaming events carry the best known full assistant text for the active request, normalizing providers that emit either deltas, cumulative snapshots, or nested assistant-message payloads.
 
 ## Change Map

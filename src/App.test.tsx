@@ -96,6 +96,12 @@ describe("App", () => {
           projects: [],
           activeSessionId: null,
           sidebarWidthRatio: null,
+          companionFileSelectionDefaults: null,
+        };
+      }
+      if (command === "check_missing_companion_files") {
+        return {
+          missingFiles: [],
         };
       }
       if (command === "load_project_state") {
@@ -113,9 +119,14 @@ describe("App", () => {
   });
 
   it("creates a project only after a folder is selected", async () => {
+    const invokeMock = vi.mocked(invoke);
     openMock.mockResolvedValue("D:\\Projects\\Workspace");
 
     render(<App />);
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("load_workspace_state");
+    });
 
     fireEvent.click(screen.getByRole("button", { name: "New project" }));
 
@@ -179,6 +190,7 @@ describe("App", () => {
           projects: [],
           activeSessionId: null,
           sidebarWidthRatio: null,
+          companionFileSelectionDefaults: null,
         };
       }
       if (command === "load_project_state") {
@@ -238,6 +250,7 @@ describe("App", () => {
           ],
           activeSessionId: "session-2",
           sidebarWidthRatio: 0.412,
+          companionFileSelectionDefaults: ["GEMINI.md"],
         };
       }
       if (command === "load_project_state") {
@@ -283,6 +296,7 @@ describe("App", () => {
         projects: useChatStore.getState().projects,
         activeSessionId: useChatStore.getState().activeSessionId,
         sidebarWidthRatio: 0.75,
+        companionFileSelectionDefaults: ["CLAUDE.md", "AGENTS.md", "GEMINI.md"],
       });
     });
   });
@@ -324,6 +338,13 @@ describe("App", () => {
           projects: [],
           activeSessionId: null,
           sidebarWidthRatio: null,
+          companionFileSelectionDefaults: null,
+        };
+      }
+      if (command === "check_missing_companion_files") {
+        expect(args).toEqual({ workingDir: "D:\\Projects\\Workspace" });
+        return {
+          missingFiles: [],
         };
       }
       if (command === "load_project_state") {
@@ -353,6 +374,10 @@ describe("App", () => {
 
     render(<App />);
 
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("load_workspace_state");
+    });
+
     fireEvent.click(screen.getByRole("button", { name: "New project" }));
 
     await waitFor(() => {
@@ -360,5 +385,156 @@ describe("App", () => {
       expect(useChatStore.getState().projects[0].sessions[0].title).toBe("Loaded chat");
       expect(useChatStore.getState().activeSessionId).toBe("session-9");
     });
+  });
+
+  it("prompts for missing companion files and creates the selected defaults before opening the project", async () => {
+    const invokeMock = vi.mocked(invoke);
+    invokeMock.mockImplementation(async (command, args) => {
+      if (command === "load_workspace_state") {
+        return {
+          projects: [],
+          activeSessionId: null,
+          sidebarWidthRatio: null,
+          companionFileSelectionDefaults: null,
+        };
+      }
+      if (command === "check_missing_companion_files") {
+        expect(args).toEqual({ workingDir: "D:\\Projects\\Workspace" });
+        return {
+          missingFiles: ["CLAUDE.md", "AGENTS.md", "GEMINI.md"],
+        };
+      }
+      if (command === "create_missing_companion_files") {
+        expect(args).toEqual({
+          workingDir: "D:\\Projects\\Workspace",
+          fileNames: ["CLAUDE.md", "AGENTS.md"],
+        });
+        return undefined;
+      }
+      if (command === "load_project_state") {
+        return null;
+      }
+      return undefined;
+    });
+    openMock.mockResolvedValue("D:\\Projects\\Workspace");
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "New project" }));
+
+    expect(await screen.findByText("Missing repo instruction files")).toBeTruthy();
+    expect((screen.getByRole("checkbox", { name: "Create CLAUDE.md" }) as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByRole("checkbox", { name: "Create AGENTS.md" }) as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByRole("checkbox", { name: "Create GEMINI.md" }) as HTMLInputElement).checked).toBe(true);
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Create GEMINI.md" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("create_missing_companion_files", {
+        workingDir: "D:\\Projects\\Workspace",
+        fileNames: ["CLAUDE.md", "AGENTS.md"],
+      });
+    });
+
+    await waitFor(() => {
+      expect(useChatStore.getState().projects).toHaveLength(1);
+    });
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("save_workspace_state", {
+        projects: useChatStore.getState().projects,
+        activeSessionId: useChatStore.getState().activeSessionId,
+        sidebarWidthRatio: expect.any(Number),
+        companionFileSelectionDefaults: ["CLAUDE.md", "AGENTS.md"],
+      });
+    });
+  });
+
+  it("uses the remembered companion-file defaults for the next folder selection", async () => {
+    const invokeMock = vi.mocked(invoke);
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "load_workspace_state") {
+        return {
+          projects: [],
+          activeSessionId: null,
+          sidebarWidthRatio: null,
+          companionFileSelectionDefaults: null,
+        };
+      }
+      if (command === "check_missing_companion_files") {
+        return {
+          missingFiles: ["CLAUDE.md", "AGENTS.md", "GEMINI.md"],
+        };
+      }
+      if (command === "load_project_state") {
+        return null;
+      }
+      return undefined;
+    });
+    openMock.mockResolvedValue("D:\\Projects\\Workspace");
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "New project" }));
+
+    expect(await screen.findByText("Missing repo instruction files")).toBeTruthy();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Create CLAUDE.md" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Create AGENTS.md" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("save_workspace_state", {
+        projects: useChatStore.getState().projects,
+        activeSessionId: useChatStore.getState().activeSessionId,
+        sidebarWidthRatio: expect.any(Number),
+        companionFileSelectionDefaults: ["GEMINI.md"],
+      });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "New project" }));
+
+    expect(await screen.findByText("Missing repo instruction files")).toBeTruthy();
+    expect((screen.getByRole("checkbox", { name: "Create CLAUDE.md" }) as HTMLInputElement).checked).toBe(false);
+    expect((screen.getByRole("checkbox", { name: "Create AGENTS.md" }) as HTMLInputElement).checked).toBe(false);
+    expect((screen.getByRole("checkbox", { name: "Create GEMINI.md" }) as HTMLInputElement).checked).toBe(true);
+  });
+
+  it("abandons project creation when the companion-file dialog is cancelled", async () => {
+    const invokeMock = vi.mocked(invoke);
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "load_workspace_state") {
+        return {
+          projects: [],
+          activeSessionId: null,
+          sidebarWidthRatio: null,
+          companionFileSelectionDefaults: null,
+        };
+      }
+      if (command === "check_missing_companion_files") {
+        return {
+          missingFiles: ["CLAUDE.md"],
+        };
+      }
+      if (command === "load_project_state") {
+        return null;
+      }
+      return undefined;
+    });
+    openMock.mockResolvedValue("D:\\Projects\\Workspace");
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "New project" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+
+    await waitFor(() => {
+      expect(useChatStore.getState().projects).toHaveLength(0);
+    });
+
+    expect(invokeMock).not.toHaveBeenCalledWith(
+      "create_missing_companion_files",
+      expect.anything()
+    );
   });
 });

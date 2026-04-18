@@ -1,4 +1,5 @@
 export type Provider = "claude" | "codex";
+export type CompanionFileName = "CLAUDE.md" | "AGENTS.md" | "GEMINI.md";
 
 export interface Message {
   id: string;
@@ -30,6 +31,11 @@ export interface PersistedWorkspaceState {
   projects: ChatProject[];
   activeSessionId: string | null;
   sidebarWidthRatio: number | null;
+  companionFileSelectionDefaults: CompanionFileName[] | null;
+}
+
+export interface MissingCompanionFilesState {
+  missingFiles: CompanionFileName[];
 }
 
 export interface StreamChunkEvent {

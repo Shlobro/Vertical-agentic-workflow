@@ -126,6 +126,7 @@ describe("chatStore", () => {
       ],
       activeSessionId: "session-2",
       sidebarWidthRatio: null,
+      companionFileSelectionDefaults: null,
     });
 
     const state = useChatStore.getState();
