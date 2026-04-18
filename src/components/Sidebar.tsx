@@ -43,6 +43,19 @@ export default function Sidebar({
   onDeleteSession,
 }: Props) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!openMenuId) return;
+    function handleOutsideClick(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setOpenMenuId(null);
+      }
+    }
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [openMenuId]);
+
   const [editingItem, setEditingItem] = useState<
     { kind: "project"; id: string } | { kind: "session"; id: string } | null
   >(null);
@@ -202,7 +215,7 @@ export default function Sidebar({
                     </button>
 
                     {openMenuId === project.id && (
-                      <div className="absolute right-0 top-10 z-10 min-w-40 rounded-lg border border-border bg-surface p-1 shadow-lg">
+                      <div ref={menuRef} className="absolute right-0 top-10 z-10 min-w-40 rounded-lg border border-border bg-surface p-1 shadow-lg">
                         <button
                           type="button"
                           onClick={() => startRenameProject(project)}
@@ -298,7 +311,7 @@ export default function Sidebar({
                             </button>
 
                             {openMenuId === session.id && (
-                              <div className="absolute right-1 top-10 z-10 min-w-36 rounded-lg border border-border bg-surface p-1 shadow-lg">
+                              <div ref={menuRef} className="absolute right-1 top-10 z-10 min-w-36 rounded-lg border border-border bg-surface p-1 shadow-lg">
                                 <button
                                   type="button"
                                   onClick={() => startRenameSession(session)}
