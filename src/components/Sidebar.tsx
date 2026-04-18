@@ -268,7 +268,7 @@ export default function Sidebar({
       <div className="px-3 pt-5 pb-3 border-b border-border space-y-2">
         <button
           onClick={() => void onNewProject()}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors"
+          className="sidebar-font-base w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors"
         >
           <Plus size={15} />
           New Project
@@ -290,7 +290,7 @@ export default function Sidebar({
               placeholder={scopeEmpty ? "No scope selected" : "Search…"}
               aria-label="Search projects and chats"
               disabled={scopeEmpty}
-              className={`w-full rounded-lg border border-border bg-surface pl-7 pr-7 py-1.5 text-xs placeholder:text-text-muted outline-none transition-colors ${
+              className={`sidebar-font-small w-full rounded-lg border border-border bg-surface pl-7 pr-7 py-1.5 placeholder:text-text-muted outline-none transition-colors ${
                 scopeEmpty
                   ? "opacity-40 cursor-not-allowed text-text-muted"
                   : "text-text-primary focus:border-blue-400"
@@ -335,7 +335,7 @@ export default function Sidebar({
                     key={key}
                     type="button"
                     onClick={() => toggleScopeKey(key)}
-                    className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left text-sm text-text-primary hover:bg-surface-hover"
+                    className="sidebar-font-base flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left text-text-primary hover:bg-surface-hover"
                   >
                     <span
                       className={`flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center rounded-sm border transition-colors ${
@@ -361,7 +361,7 @@ export default function Sidebar({
 
       <div className="flex-1 overflow-y-auto py-2 px-2 space-y-1">
         {filteredProjects.length === 0 && (
-          <p className="text-xs text-text-muted text-center py-4">
+          <p className="sidebar-font-small text-text-muted text-center py-4">
             {isSearching ? "No results" : "No projects yet"}
           </p>
         )}
@@ -372,7 +372,7 @@ export default function Sidebar({
 
           return (
             <div key={project.id} className="rounded-xl border border-transparent bg-transparent">
-              <div className="group rounded-lg px-1 py-1 text-sm text-text-muted hover:bg-surface">
+              <div className="sidebar-font-base group rounded-lg px-1 py-1 text-text-muted hover:bg-surface">
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
@@ -400,7 +400,7 @@ export default function Sidebar({
                         onChange={(event) => setDraftTitle(event.target.value)}
                         onBlur={submitRename}
                         onKeyDown={handleRenameKeyDown}
-                        className="w-full rounded-md border border-border bg-surface px-2 py-1 text-sm text-text-primary outline-none focus:border-blue-400"
+                        className="sidebar-font-base w-full rounded-md border border-border bg-surface px-2 py-1 text-text-primary outline-none focus:border-blue-400"
                       />
                     </form>
                   ) : (
@@ -466,10 +466,10 @@ export default function Sidebar({
               {isExpanded && (
                 <div className="ml-8 mt-1 space-y-0.5">
                   {filteredSessions.length === 0 && projectMatches && project.sessions.length === 0 && (
-                    <p className="px-3 py-2 text-xs text-text-muted">No chats yet</p>
+                    <p className="sidebar-font-small px-3 py-2 text-text-muted">No chats yet</p>
                   )}
                   {filteredSessions.length === 0 && !isSearching && (
-                    <p className="px-3 py-2 text-xs text-text-muted">No chats yet</p>
+                    <p className="sidebar-font-small px-3 py-2 text-text-muted">No chats yet</p>
                   )}
 
                   {filteredSessions.map(({ session, lastMatchingMessageId }) => {
@@ -480,7 +480,7 @@ export default function Sidebar({
                     return (
                       <div
                         key={session.id}
-                        className={`group rounded-lg text-sm transition-colors ${
+                        className={`sidebar-font-base group rounded-lg transition-colors ${
                           session.id === activeSessionId
                             ? "bg-blue-600/20 text-blue-400"
                             : "text-text-muted hover:text-text-primary hover:bg-surface"
@@ -499,7 +499,7 @@ export default function Sidebar({
                                 onChange={(event) => setDraftTitle(event.target.value)}
                                 onBlur={submitRename}
                                 onKeyDown={handleRenameKeyDown}
-                                className="w-full rounded-md border border-border bg-surface px-2 py-1 text-sm text-text-primary outline-none focus:border-blue-400"
+                                className="sidebar-font-base w-full rounded-md border border-border bg-surface px-2 py-1 text-text-primary outline-none focus:border-blue-400"
                               />
                             </form>
                           ) : (

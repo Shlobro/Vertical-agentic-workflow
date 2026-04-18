@@ -1,4 +1,4 @@
-import { MouseEvent as ReactMouseEvent, useEffect, useRef, useState } from "react";
+import { CSSProperties, MouseEvent as ReactMouseEvent, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -13,6 +13,7 @@ import {
   Provider,
   StreamChunkEvent,
   DEFAULT_MODELS,
+  TextZoomState,
 } from "./types";
 import Sidebar from "./components/Sidebar";
 import ChatView from "./components/ChatView";
@@ -29,6 +30,14 @@ type PendingDelete =
 const DEFAULT_SIDEBAR_WIDTH = 288;
 const MIN_SIDEBAR_WIDTH = 240;
 const MAX_SIDEBAR_WIDTH_RATIO = 0.75;
+const DEFAULT_TEXT_ZOOM: TextZoomState = {
+  chatRem: 0.9375,
+  inputRem: 1.0625,
+  sidebarRem: 0.875,
+};
+const MIN_TEXT_ZOOM_REM = 0.75;
+const MAX_TEXT_ZOOM_REM = 1.5;
+const TEXT_ZOOM_STEP_REM = 0.0625;
 const COMPANION_FILE_NAMES: CompanionFileName[] = ["CLAUDE.md", "AGENTS.md", "GEMINI.md"];
 const SYSTEM_COMPANION_FILE_TEMPLATE = `- always start by reading \`vertical_developer_guide.md\` and then read any other relevant \`*_developer_guide.md\` files for the folders you will modify.
 - always read the \`.md\` file in every folder you work in. if there is no \`.md\` file in that folder, create one named \`<folder>_developer_guide.md\` and write it for developers who are new to the codebase. these files should never be over 500 lines long.
@@ -62,6 +71,7 @@ export default function App() {
   const store = useChatStore();
   const activeSession = store.activeSession();
   const activeProject = store.findProjectBySessionId(store.activeSessionId);
+  const appShellRef = useRef<HTMLDivElement>(null);
   const unlistenRef = useRef<UnlistenFn[]>([]);
   const hydrationCompleteRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -77,12 +87,14 @@ export default function App() {
   const [activeHighlightQuery, setActiveHighlightQuery] = useState<string>("");
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
+  const [textZoom, setTextZoom] = useState<TextZoomState>(DEFAULT_TEXT_ZOOM);
   const [companionFileSelectionDefaults, setCompanionFileSelectionDefaults] =
     useState<CompanionFileName[]>(COMPANION_FILE_NAMES);
   const [rememberedCompanionFileTemplate, setRememberedCompanionFileTemplate] = useState<string | null>(null);
   const [companionDialogState, setCompanionDialogState] = useState<CompanionDialogState | null>(null);
   const sidebarResizeRef = useRef({ startX: 0, startWidth: DEFAULT_SIDEBAR_WIDTH });
   const sidebarWidthRatioRef = useRef(getSidebarWidthRatio(DEFAULT_SIDEBAR_WIDTH));
+  const textZoomRef = useRef<TextZoomState>(DEFAULT_TEXT_ZOOM);
   const companionFileSelectionDefaultsRef = useRef<CompanionFileName[]>(COMPANION_FILE_NAMES);
   const rememberedCompanionFileTemplateRef = useRef<string | null>(null);
   const companionDialogResolverRef = useRef<((shouldContinue: boolean) => void) | null>(null);
@@ -94,6 +106,10 @@ export default function App() {
   useEffect(() => {
     companionFileSelectionDefaultsRef.current = companionFileSelectionDefaults;
   }, [companionFileSelectionDefaults]);
+
+  useEffect(() => {
+    textZoomRef.current = textZoom;
+  }, [textZoom]);
 
   useEffect(() => {
     rememberedCompanionFileTemplateRef.current = rememberedCompanionFileTemplate;
@@ -144,6 +160,11 @@ export default function App() {
           setSidebarWidth(nextWidth);
           sidebarWidthRatioRef.current = getSidebarWidthRatio(nextWidth);
         }
+        if (state.textZoom) {
+          const nextTextZoom = normalizeTextZoom(state.textZoom);
+          setTextZoom(nextTextZoom);
+          textZoomRef.current = nextTextZoom;
+        }
         if (Array.isArray(state.companionFileSelectionDefaults)) {
           setCompanionFileSelectionDefaults(state.companionFileSelectionDefaults);
         }
@@ -191,6 +212,7 @@ export default function App() {
         projects: useChatStore.getState().projects,
         activeSessionId: useChatStore.getState().activeSessionId,
         sidebarWidthRatio,
+        textZoom: textZoomRef.current,
         companionFileSelectionDefaults: companionFileSelectionDefaultsRef.current,
         companionFileTemplate: rememberedCompanionFileTemplateRef.current,
       }).catch((error) => {
@@ -233,13 +255,14 @@ export default function App() {
         projects: useChatStore.getState().projects,
         activeSessionId: useChatStore.getState().activeSessionId,
         sidebarWidthRatio: sidebarWidthRatioRef.current,
+        textZoom,
         companionFileSelectionDefaults,
         companionFileTemplate: rememberedCompanionFileTemplate,
       }).catch((error) => {
         console.error("Failed to save workspace state", error);
       });
     }, 150);
-  }, [sidebarWidth, companionFileSelectionDefaults, rememberedCompanionFileTemplate]);
+  }, [sidebarWidth, textZoom, companionFileSelectionDefaults, rememberedCompanionFileTemplate]);
 
   useEffect(() => {
     if (!isResizingSidebar) return;
@@ -281,6 +304,54 @@ export default function App() {
 
     return () => {
       window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
+  useEffect(() => {
+    const shell = appShellRef.current;
+    if (!shell) return;
+
+    const handleWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey) return;
+
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+
+      const surfaceElement = target.closest("[data-text-zoom-surface]") as HTMLElement | null;
+      const surface = surfaceElement?.dataset.textZoomSurface;
+      if (!surface) return;
+
+      event.preventDefault();
+
+      const direction = event.deltaY < 0 ? 1 : -1;
+      setTextZoom((current) => {
+        const next = { ...current };
+
+        if (surface === "chat") {
+          next.chatRem = adjustTextZoom(current.chatRem, direction);
+        } else if (surface === "input") {
+          next.inputRem = adjustTextZoom(current.inputRem, direction);
+        } else if (surface === "sidebar") {
+          next.sidebarRem = adjustTextZoom(current.sidebarRem, direction);
+        } else {
+          return current;
+        }
+
+        if (
+          next.chatRem === current.chatRem &&
+          next.inputRem === current.inputRem &&
+          next.sidebarRem === current.sidebarRem
+        ) {
+          return current;
+        }
+
+        return next;
+      });
+    };
+
+    shell.addEventListener("wheel", handleWheel, { passive: false });
+    return () => {
+      shell.removeEventListener("wheel", handleWheel);
     };
   }, []);
 
@@ -558,45 +629,61 @@ export default function App() {
         null
       : null;
 
+  const shellStyle = {
+    "--chat-font-size": `${textZoom.chatRem}rem`,
+    "--chat-font-size-small": `${roundTextZoom(textZoom.chatRem * 0.8125)}rem`,
+    "--chat-font-size-title": `${roundTextZoom(textZoom.chatRem * 2)}rem`,
+    "--input-font-size": `${textZoom.inputRem}rem`,
+    "--input-font-size-small": `${roundTextZoom(textZoom.inputRem * 0.75)}rem`,
+    "--sidebar-font-size": `${textZoom.sidebarRem}rem`,
+    "--sidebar-font-size-small": `${roundTextZoom(textZoom.sidebarRem * 0.857)}rem`,
+  } as CSSProperties;
+
   return (
-    <div className="flex h-screen overflow-hidden bg-bg-primary text-text-primary">
-      <Sidebar
-        width={sidebarWidth}
-        isResizing={isResizingSidebar}
-        onResizeStart={handleSidebarResizeStart}
-        projects={store.projects}
-        activeSessionId={store.activeSessionId}
-        onNewProject={handleNewProject}
-        onNewChat={handleNewChat}
-        onToggleProject={store.toggleProjectCollapsed}
-        onSelectSession={handleSelectSession}
-        onRenameProject={store.renameProject}
-        onDeleteProject={handleDeleteProject}
-        onRenameSession={store.renameSession}
-        onDeleteSession={handleDeleteChat}
-        onSearchSelectSession={handleSearchSelectSession}
-        onSearchClear={() => { setActiveHighlightQuery(""); setScrollToMessageId(null); }}
-        onSearchQueryChange={(query, scopeContents) => {
-          setActiveHighlightQuery(scopeContents ? query : "");
-          if (!scopeContents) setScrollToMessageId(null);
-        }}
-      />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <ChatView
-          session={activeSession}
-          highlightQuery={activeHighlightQuery || undefined}
-          scrollToMessageId={scrollToMessageId}
+    <div ref={appShellRef} className="flex h-screen overflow-hidden bg-bg-primary text-text-primary" style={shellStyle}>
+      <div data-text-zoom-surface="sidebar" className="flex min-h-0">
+        <Sidebar
+          width={sidebarWidth}
+          isResizing={isResizingSidebar}
+          onResizeStart={handleSidebarResizeStart}
+          projects={store.projects}
+          activeSessionId={store.activeSessionId}
+          onNewProject={handleNewProject}
+          onNewChat={handleNewChat}
+          onToggleProject={store.toggleProjectCollapsed}
+          onSelectSession={handleSelectSession}
+          onRenameProject={store.renameProject}
+          onDeleteProject={handleDeleteProject}
+          onRenameSession={store.renameSession}
+          onDeleteSession={handleDeleteChat}
+          onSearchSelectSession={handleSearchSelectSession}
+          onSearchClear={() => { setActiveHighlightQuery(""); setScrollToMessageId(null); }}
+          onSearchQueryChange={(query, scopeContents) => {
+            setActiveHighlightQuery(scopeContents ? query : "");
+            if (!scopeContents) setScrollToMessageId(null);
+          }}
         />
-        {activeSession && activeProject && (
-          <InputBar
-            streaming={activeSession.isStreaming}
-            provider={activeSession.provider}
-            model={activeSession.model}
-            onProviderChange={handleProviderChange}
-            onModelChange={handleModelChange}
-            onSend={handleSend}
-            onCancel={handleCancel}
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div data-text-zoom-surface="chat" className="flex min-h-0 flex-1">
+          <ChatView
+            session={activeSession}
+            highlightQuery={activeHighlightQuery || undefined}
+            scrollToMessageId={scrollToMessageId}
           />
+        </div>
+        {activeSession && activeProject && (
+          <div data-text-zoom-surface="input">
+            <InputBar
+              streaming={activeSession.isStreaming}
+              provider={activeSession.provider}
+              model={activeSession.model}
+              onProviderChange={handleProviderChange}
+              onModelChange={handleModelChange}
+              onSend={handleSend}
+              onCancel={handleCancel}
+            />
+          </div>
         )}
       </div>
       <ConfirmDialog
@@ -661,4 +748,24 @@ function getSidebarWidthRatio(width: number) {
 
 function getSidebarWidthFromRatio(ratio: number) {
   return clamp(Math.round(window.innerWidth * ratio), MIN_SIDEBAR_WIDTH, getMaxSidebarWidth());
+}
+
+function normalizeTextZoom(textZoom: TextZoomState): TextZoomState {
+  return {
+    chatRem: clampTextZoom(textZoom.chatRem),
+    inputRem: clampTextZoom(textZoom.inputRem),
+    sidebarRem: clampTextZoom(textZoom.sidebarRem),
+  };
+}
+
+function adjustTextZoom(current: number, direction: 1 | -1) {
+  return clampTextZoom(roundTextZoom(current + direction * TEXT_ZOOM_STEP_REM));
+}
+
+function clampTextZoom(value: number) {
+  return clamp(value, MIN_TEXT_ZOOM_REM, MAX_TEXT_ZOOM_REM);
+}
+
+function roundTextZoom(value: number) {
+  return Math.round(value * 10000) / 10000;
 }

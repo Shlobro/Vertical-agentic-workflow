@@ -13,7 +13,7 @@
 
 ## Runtime Role
 - The frontend never shells out directly. All provider execution and all persistence I/O go through Tauri commands.
-- This folder is responsible for process spawning, active child-process tracking, stdout/stderr parsing, provider timeouts, event emission back into the window, and local workspace/project persistence, including shell-level workspace preferences such as the sidebar width ratio stored beside the app executable.
+- This folder is responsible for process spawning, active child-process tracking, stdout/stderr parsing, provider timeouts, event emission back into the window, and local workspace/project persistence, including shell-level workspace preferences such as the sidebar width ratio and per-surface text zoom stored beside the app executable.
 - This folder also owns repo-root onboarding filesystem checks such as detecting and optionally creating missing `CLAUDE.md`, `AGENTS.md`, and `GEMINI.md` files after the user selects a working directory, while the frontend supplies the chosen shared template body for those files.
 - Capability files under `capabilities/` are part of the runtime contract. The working-directory picker depends on dialog open permission and existing fs flows depend on the matching plugin capability entries.
 - Keep generated Cargo and Tauri artifacts out of version control.

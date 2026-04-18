@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Added `Ctrl + mouse wheel` text zoom with separate persisted sizes for the chat transcript, the composer, and the sidebar. The zoom state is stored in workspace preferences and restored on startup.
 - Added per-message `provider` and `model` fields stamped on assistant messages at finalization, so each message bubble displays the logo of the provider that generated it regardless of subsequent provider changes on the same session.
 - Added an `isContextHandoff` flag on `Message` to mark the synthetic transcript injected when switching providers mid-chat.
 - Switching providers on a session that already has messages now shows a `ProviderSwitchDialog` warning the user that the full chat history will be sent to the new provider. The dialog has "Yes, switch" and "Cancel" options and always appears (no suppress option until a settings screen exists).

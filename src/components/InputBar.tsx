@@ -93,7 +93,7 @@ export default function InputBar({
           disabled={streaming}
           onKeyDown={handleKeyDown}
           onInput={autoResize}
-          className="chat-input-font mb-2 max-h-[120px] w-full resize-none overflow-y-auto bg-transparent text-[17px] leading-relaxed text-text-primary outline-none placeholder-text-muted"
+          className="chat-input-font input-font-base mb-2 max-h-[120px] w-full resize-none overflow-y-auto bg-transparent text-text-primary outline-none placeholder-text-muted"
         />
 
         <div className="flex items-center justify-end gap-1">
@@ -102,7 +102,7 @@ export default function InputBar({
             <button
               onClick={() => { setProviderOpen((v) => !v); setModelOpen(false); }}
               aria-label="Select provider"
-              className="group flex w-24 items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-text-muted transition-all hover:bg-surface-hover hover:text-text-primary"
+              className="input-font-small group flex w-24 items-center gap-1.5 rounded-lg px-2 py-1.5 text-text-muted transition-all hover:bg-surface-hover hover:text-text-primary"
             >
               <img
                 src={PROVIDER_ICONS[provider]}
@@ -121,7 +121,7 @@ export default function InputBar({
                   <button
                     key={item.id}
                     onClick={() => selectProvider(item.id)}
-                    className={`w-full flex items-center gap-2 px-3 py-2 text-xs transition-colors ${
+                    className={`input-font-small w-full flex items-center gap-2 px-3 py-2 transition-colors ${
                       provider === item.id
                         ? "bg-blue-600/15 text-text-primary"
                         : "text-text-muted hover:bg-surface-hover hover:text-text-primary"
@@ -141,7 +141,7 @@ export default function InputBar({
             <button
               onClick={() => { setModelOpen((v) => !v); setProviderOpen(false); }}
               aria-label="Select model"
-              className="group flex w-36 items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-text-muted transition-all hover:bg-surface-hover hover:text-text-primary"
+              className="input-font-small group flex w-36 items-center gap-1.5 rounded-lg px-2 py-1.5 text-text-muted transition-all hover:bg-surface-hover hover:text-text-primary"
             >
               <span className="flex-1 truncate text-left">
                 {activeModel?.label.replace(/^(Claude|Gemini)\s*/i, "") || activeModel?.label || model}
@@ -156,7 +156,7 @@ export default function InputBar({
                     <button
                       key={item.id}
                       onClick={() => selectModel(item.id)}
-                      className={`w-full flex items-center justify-between px-3 py-2 text-xs transition-colors ${
+                      className={`input-font-small w-full flex items-center justify-between px-3 py-2 transition-colors ${
                         model === item.id
                           ? "bg-blue-600/15 text-text-primary"
                           : "text-text-muted hover:bg-surface-hover hover:text-text-primary"

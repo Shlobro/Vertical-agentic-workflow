@@ -25,7 +25,7 @@ export default function ChatView({ session, highlightQuery, scrollToMessageId }:
 
   if (!session) {
     return (
-      <div className="flex-1 flex items-center justify-center text-text-muted text-sm">
+      <div className="chat-font-small flex-1 flex items-center justify-center text-text-muted">
         Select a chat or start a new one
       </div>
     );
@@ -36,8 +36,8 @@ export default function ChatView({ session, highlightQuery, scrollToMessageId }:
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center space-y-2">
-          <p className="text-2xl font-semibold text-text-primary">Vertical</p>
-          <p className="text-text-muted text-sm">Start a conversation with {providerLabel}</p>
+          <p className="chat-font-title font-semibold text-text-primary">Vertical</p>
+          <p className="chat-font-small text-text-muted">Start a conversation with {providerLabel}</p>
         </div>
       </div>
     );

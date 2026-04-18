@@ -30,10 +30,17 @@ export interface ChatProject {
   sessions: ChatSession[];
 }
 
+export interface TextZoomState {
+  chatRem: number;
+  inputRem: number;
+  sidebarRem: number;
+}
+
 export interface PersistedWorkspaceState {
   projects: ChatProject[];
   activeSessionId: string | null;
   sidebarWidthRatio: number | null;
+  textZoom: TextZoomState | null;
   companionFileSelectionDefaults: CompanionFileName[] | null;
   companionFileTemplate: string | null;
 }

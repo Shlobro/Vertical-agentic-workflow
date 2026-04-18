@@ -37,7 +37,7 @@ export default function MessageBubble({ message, sessionProvider, highlightQuery
       )}
       <div
         className={`
-          max-w-[70%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap select-text
+          chat-font-base max-w-[70%] rounded-2xl px-4 py-3 whitespace-pre-wrap select-text
           ${isUser
             ? "bg-blue-600 text-white rounded-br-sm"
             : "bg-surface text-text-primary rounded-bl-sm border border-border"
@@ -72,7 +72,7 @@ function HandoffBlock({ message }: { message: Message }) {
       <div className="w-full max-w-[70%] rounded-xl border border-border bg-surface/50 overflow-hidden">
         <button
           onClick={() => setOpen((v) => !v)}
-          className="flex w-full items-center justify-between px-3 py-2 text-xs text-text-muted hover:text-text-primary transition-colors"
+          className="chat-font-small flex w-full items-center justify-between px-3 py-2 text-text-muted hover:text-text-primary transition-colors"
         >
           <span>Context from previous conversation</span>
           <ChevronDown
@@ -81,7 +81,7 @@ function HandoffBlock({ message }: { message: Message }) {
           />
         </button>
         {open && (
-          <div className="px-3 pb-3 text-xs text-text-muted whitespace-pre-wrap border-t border-border pt-2 max-h-48 overflow-y-auto">
+          <div className="chat-font-small px-3 pb-3 text-text-muted whitespace-pre-wrap border-t border-border pt-2 max-h-48 overflow-y-auto">
             {message.text.replace(/^You are an AI assistant taking over.*?Here is the conversation so far:\n\n/s, "")}
           </div>
         )}

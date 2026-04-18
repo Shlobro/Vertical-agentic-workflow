@@ -11,7 +11,7 @@
 
 ## Guardrails
 - Keep `lib.rs` small and declarative.
-- Keep filesystem persistence in `commands/`, not in provider modules or frontend code. Workspace-level UI preferences that must survive restarts should persist through the same command layer, preferably as stable normalized values such as ratios instead of window-size-specific pixels.
+- Keep filesystem persistence in `commands/`, not in provider modules or frontend code. Workspace-level UI preferences that must survive restarts should persist through the same command layer, preferably as stable normalized values such as ratios or rem sizes instead of window-size-specific pixels.
 - Repo-root file inspection and creation for project onboarding also belong in `commands/` so the frontend remains declarative and testable.
 - Put provider branching behind `commands/` and `providers/`, not in unrelated modules.
 - Treat provider process lifecycle and stdout/stderr parsing as fragile integration code: small, explicit helpers are easier to maintain than large generic abstractions.

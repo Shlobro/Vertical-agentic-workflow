@@ -16,8 +16,17 @@ pub struct PersistedWorkspaceState {
     pub projects: Vec<PersistedProject>,
     pub active_session_id: Option<String>,
     pub sidebar_width_ratio: Option<f64>,
+    pub text_zoom: Option<TextZoomState>,
     pub companion_file_selection_defaults: Option<Vec<String>>,
     pub companion_file_template: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct TextZoomState {
+    pub chat_rem: f64,
+    pub input_rem: f64,
+    pub sidebar_rem: f64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
@@ -65,6 +74,7 @@ struct RegistryFile {
     project_paths: Vec<String>,
     active_project_path: Option<String>,
     sidebar_width_ratio: Option<f64>,
+    text_zoom: Option<TextZoomState>,
     companion_file_selection_defaults: Option<Vec<String>>,
     companion_file_template: Option<String>,
 }
@@ -102,6 +112,7 @@ pub fn load_workspace_state() -> Result<PersistedWorkspaceState, String> {
         &state.projects,
         &state.active_session_id,
         state.sidebar_width_ratio,
+        state.text_zoom.clone(),
         state.companion_file_selection_defaults.clone(),
         state.companion_file_template.clone(),
     )?;
@@ -146,6 +157,7 @@ pub fn save_workspace_state(
     projects: Vec<PersistedProject>,
     active_session_id: Option<String>,
     sidebar_width_ratio: Option<f64>,
+    text_zoom: Option<TextZoomState>,
     companion_file_selection_defaults: Option<Vec<String>>,
     companion_file_template: Option<String>,
 ) -> Result<(), String> {
@@ -155,6 +167,7 @@ pub fn save_workspace_state(
         &projects,
         active_session_id.as_deref(),
         sidebar_width_ratio,
+        text_zoom,
         companion_file_selection_defaults,
         companion_file_template,
     )
@@ -210,6 +223,7 @@ fn load_workspace_state_from_root(root: &Path) -> Result<PersistedWorkspaceState
         projects,
         active_session_id,
         sidebar_width_ratio: registry.sidebar_width_ratio,
+        text_zoom: registry.text_zoom,
         companion_file_selection_defaults: registry.companion_file_selection_defaults,
         companion_file_template: registry.companion_file_template,
     })
@@ -220,6 +234,7 @@ fn save_workspace_state_to_root(
     projects: &[PersistedProject],
     active_session_id: Option<&str>,
     sidebar_width_ratio: Option<f64>,
+    text_zoom: Option<TextZoomState>,
     companion_file_selection_defaults: Option<Vec<String>>,
     companion_file_template: Option<String>,
 ) -> Result<(), String> {
@@ -232,6 +247,7 @@ fn save_workspace_state_to_root(
         projects,
         &active_session_id.map(str::to_string),
         sidebar_width_ratio,
+        text_zoom,
         companion_file_selection_defaults,
         companion_file_template,
     )
@@ -242,6 +258,7 @@ fn save_registry_file(
     projects: &[PersistedProject],
     active_session_id: &Option<String>,
     sidebar_width_ratio: Option<f64>,
+    text_zoom: Option<TextZoomState>,
     companion_file_selection_defaults: Option<Vec<String>>,
     companion_file_template: Option<String>,
 ) -> Result<(), String> {
@@ -258,6 +275,7 @@ fn save_registry_file(
         project_paths: projects.iter().map(|project| project.working_dir.clone()).collect(),
         active_project_path,
         sidebar_width_ratio,
+        text_zoom,
         companion_file_selection_defaults,
         companion_file_template,
     };
@@ -389,6 +407,7 @@ fn load_registry_file(root: &Path) -> Result<RegistryFile, String> {
             project_paths: Vec::new(),
             active_project_path: None,
             sidebar_width_ratio: None,
+            text_zoom: None,
             companion_file_selection_defaults: None,
             companion_file_template: None,
         });
@@ -482,7 +501,7 @@ mod tests {
     use super::{
         create_missing_companion_files, delete_project_state_at_path, load_workspace_state_from_root,
         missing_companion_files, project_vertical_dir, save_workspace_state_to_root,
-        PersistedMessage, PersistedProject, PersistedSession,
+        PersistedMessage, PersistedProject, PersistedSession, TextZoomState,
     };
     use std::env;
     use std::fs;
@@ -542,6 +561,11 @@ mod tests {
             &[project],
             Some("session-2"),
             Some(0.512),
+            Some(TextZoomState {
+                chat_rem: 1.0,
+                input_rem: 1.125,
+                sidebar_rem: 0.875,
+            }),
             Some(vec!["CLAUDE.md".to_string(), "GEMINI.md".to_string()]),
             Some("custom template".to_string()),
         )
@@ -553,6 +577,14 @@ mod tests {
         assert_eq!(loaded.active_session_id.as_deref(), Some("session-2"));
         assert_eq!(loaded.projects[0].sessions[0].id, "session-1");
         assert_eq!(loaded.sidebar_width_ratio, Some(0.512));
+        assert_eq!(
+            loaded.text_zoom,
+            Some(TextZoomState {
+                chat_rem: 1.0,
+                input_rem: 1.125,
+                sidebar_rem: 0.875,
+            })
+        );
         assert_eq!(
             loaded.companion_file_selection_defaults,
             Some(vec!["CLAUDE.md".to_string(), "GEMINI.md".to_string()])
@@ -567,9 +599,10 @@ mod tests {
         fs::create_dir_all(&project_root).unwrap();
         let mut project = sample_project(&project_root);
 
-        save_workspace_state_to_root(&root, &[project.clone()], Some("session-1"), Some(0.32), None, None).unwrap();
+        save_workspace_state_to_root(&root, &[project.clone()], Some("session-1"), Some(0.32), None, None, None)
+            .unwrap();
         project.sessions.pop();
-        save_workspace_state_to_root(&root, &[project], Some("session-1"), Some(0.32), None, None).unwrap();
+        save_workspace_state_to_root(&root, &[project], Some("session-1"), Some(0.32), None, None, None).unwrap();
 
         let stale_chat_path = project_vertical_dir(&project_root).join("chats").join("session-2.json");
         assert!(!stale_chat_path.exists());
@@ -582,7 +615,7 @@ mod tests {
         fs::create_dir_all(&project_root).unwrap();
         let project = sample_project(&project_root);
 
-        save_workspace_state_to_root(&root, &[project], Some("session-1"), Some(0.32), None, None).unwrap();
+        save_workspace_state_to_root(&root, &[project], Some("session-1"), Some(0.32), None, None, None).unwrap();
         delete_project_state_at_path(&project_root).unwrap();
 
         assert!(!project_vertical_dir(&project_root).exists());

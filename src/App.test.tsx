@@ -96,6 +96,7 @@ describe("App", () => {
           projects: [],
           activeSessionId: null,
           sidebarWidthRatio: null,
+          textZoom: null,
           companionFileSelectionDefaults: null,
           companionFileTemplate: null,
         };
@@ -190,6 +191,7 @@ describe("App", () => {
           projects: [],
           activeSessionId: null,
           sidebarWidthRatio: null,
+          textZoom: null,
           companionFileSelectionDefaults: null,
           companionFileTemplate: null,
         };
@@ -249,6 +251,7 @@ describe("App", () => {
       }],
       activeSessionId: sessionId,
       sidebarWidthRatio: null,
+      textZoom: null,
       companionFileSelectionDefaults: null,
       companionFileTemplate: null,
     };
@@ -318,6 +321,11 @@ describe("App", () => {
           ],
           activeSessionId: "session-2",
           sidebarWidthRatio: 0.412,
+          textZoom: {
+            chatRem: 1,
+            inputRem: 1.125,
+            sidebarRem: 0.9375,
+          },
           companionFileSelectionDefaults: ["GEMINI.md"],
           companionFileTemplate: null,
         };
@@ -336,6 +344,10 @@ describe("App", () => {
     });
 
     expect(screen.getByTestId("sidebar-width").textContent).toBe("412");
+    const appShell = screen.getByTestId("sidebar-width").closest(".flex.h-screen") as HTMLElement;
+    expect(appShell.style.getPropertyValue("--chat-font-size")).toBe("1rem");
+    expect(appShell.style.getPropertyValue("--input-font-size")).toBe("1.125rem");
+    expect(appShell.style.getPropertyValue("--sidebar-font-size")).toBe("0.9375rem");
   });
 
   it("updates the sidebar width while dragging the resize handle", async () => {
@@ -365,6 +377,11 @@ describe("App", () => {
         projects: useChatStore.getState().projects,
         activeSessionId: useChatStore.getState().activeSessionId,
         sidebarWidthRatio: 0.75,
+        textZoom: {
+          chatRem: 0.9375,
+          inputRem: 1.0625,
+          sidebarRem: 0.875,
+        },
         companionFileSelectionDefaults: ["CLAUDE.md", "AGENTS.md", "GEMINI.md"],
         companionFileTemplate: null,
       });
@@ -408,6 +425,7 @@ describe("App", () => {
           projects: [],
           activeSessionId: null,
           sidebarWidthRatio: null,
+          textZoom: null,
           companionFileSelectionDefaults: null,
           companionFileTemplate: null,
         };
@@ -464,6 +482,7 @@ describe("App", () => {
           projects: [],
           activeSessionId: null,
           sidebarWidthRatio: null,
+          textZoom: null,
           companionFileSelectionDefaults: null,
           companionFileTemplate: null,
         };
@@ -512,6 +531,11 @@ describe("App", () => {
         projects: useChatStore.getState().projects,
         activeSessionId: useChatStore.getState().activeSessionId,
         sidebarWidthRatio: expect.any(Number),
+        textZoom: {
+          chatRem: 0.9375,
+          inputRem: 1.0625,
+          sidebarRem: 0.875,
+        },
         companionFileSelectionDefaults: ["CLAUDE.md", "AGENTS.md"],
         companionFileTemplate: null,
       });
@@ -526,6 +550,7 @@ describe("App", () => {
           projects: [],
           activeSessionId: null,
           sidebarWidthRatio: null,
+          textZoom: null,
           companionFileSelectionDefaults: null,
           companionFileTemplate: null,
         };
@@ -556,6 +581,11 @@ describe("App", () => {
         projects: useChatStore.getState().projects,
         activeSessionId: useChatStore.getState().activeSessionId,
         sidebarWidthRatio: expect.any(Number),
+        textZoom: {
+          chatRem: 0.9375,
+          inputRem: 1.0625,
+          sidebarRem: 0.875,
+        },
         companionFileSelectionDefaults: ["GEMINI.md"],
         companionFileTemplate: null,
       });
@@ -577,6 +607,7 @@ describe("App", () => {
           projects: [],
           activeSessionId: null,
           sidebarWidthRatio: null,
+          textZoom: null,
           companionFileSelectionDefaults: null,
           companionFileTemplate: null,
         };
@@ -616,6 +647,7 @@ describe("App", () => {
           projects: [],
           activeSessionId: null,
           sidebarWidthRatio: null,
+          textZoom: null,
           companionFileSelectionDefaults: null,
           companionFileTemplate: null,
         };
@@ -668,6 +700,11 @@ describe("App", () => {
         projects: useChatStore.getState().projects,
         activeSessionId: useChatStore.getState().activeSessionId,
         sidebarWidthRatio: expect.any(Number),
+        textZoom: {
+          chatRem: 0.9375,
+          inputRem: 1.0625,
+          sidebarRem: 0.875,
+        },
         companionFileSelectionDefaults: ["CLAUDE.md"],
         companionFileTemplate: null,
       });
@@ -682,6 +719,7 @@ describe("App", () => {
           projects: [],
           activeSessionId: null,
           sidebarWidthRatio: null,
+          textZoom: null,
           companionFileSelectionDefaults: null,
           companionFileTemplate: null,
         };
@@ -718,6 +756,11 @@ describe("App", () => {
         projects: useChatStore.getState().projects,
         activeSessionId: useChatStore.getState().activeSessionId,
         sidebarWidthRatio: expect.any(Number),
+        textZoom: {
+          chatRem: 0.9375,
+          inputRem: 1.0625,
+          sidebarRem: 0.875,
+        },
         companionFileSelectionDefaults: ["CLAUDE.md"],
         companionFileTemplate: "remembered template",
       });
@@ -730,5 +773,77 @@ describe("App", () => {
     expect((screen.getByRole("textbox", { name: "Companion file template" }) as HTMLTextAreaElement).value).toBe(
       "remembered template"
     );
+  });
+
+  it("zooms the chat, input, and sidebar text independently with ctrl plus wheel and persists the new sizes", async () => {
+    const sessionId = crypto.randomUUID();
+    const workspaceState = {
+      projects: [{
+        id: "project-zoom",
+        title: "Alpha",
+        workingDir: "D:\\Projects\\Alpha",
+        collapsed: false,
+        lastActiveSessionId: sessionId,
+        sessions: [{
+          id: sessionId,
+          title: "Chat 1",
+          provider: "claude" as const,
+          model: "claude-sonnet-4-6",
+          cliSessionId: "",
+          messages: [],
+          isStreaming: false,
+        }],
+      }],
+      activeSessionId: sessionId,
+      sidebarWidthRatio: null,
+      textZoom: null,
+      companionFileSelectionDefaults: null,
+      companionFileTemplate: null,
+    };
+    vi.mocked(invoke).mockImplementation(async (command) => {
+      if (command === "load_workspace_state") return workspaceState;
+      if (command === "load_project_state") return null;
+      return undefined;
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("chat-view").textContent).toBe("active");
+    });
+
+    const appShell = screen.getByTestId("sidebar-width").closest(".flex.h-screen") as HTMLElement;
+
+    fireEvent.wheel(screen.getByTestId("chat-view"), { ctrlKey: true, deltaY: -100 });
+    await waitFor(() => {
+      expect(appShell.style.getPropertyValue("--chat-font-size")).toBe("1rem");
+      expect(appShell.style.getPropertyValue("--input-font-size")).toBe("1.0625rem");
+      expect(appShell.style.getPropertyValue("--sidebar-font-size")).toBe("0.875rem");
+    });
+
+    fireEvent.wheel(screen.getByTestId("input-bar"), { ctrlKey: true, deltaY: 100 });
+    await waitFor(() => {
+      expect(appShell.style.getPropertyValue("--input-font-size")).toBe("1rem");
+    });
+
+    fireEvent.wheel(screen.getByTestId("sidebar"), { ctrlKey: true, deltaY: -100 });
+    await waitFor(() => {
+      expect(appShell.style.getPropertyValue("--sidebar-font-size")).toBe("0.9375rem");
+    });
+
+    await waitFor(() => {
+      expect(vi.mocked(invoke)).toHaveBeenCalledWith("save_workspace_state", {
+        projects: useChatStore.getState().projects,
+        activeSessionId: useChatStore.getState().activeSessionId,
+        sidebarWidthRatio: expect.any(Number),
+        textZoom: {
+          chatRem: 1,
+          inputRem: 1,
+          sidebarRem: 0.9375,
+        },
+        companionFileSelectionDefaults: ["CLAUDE.md", "AGENTS.md", "GEMINI.md"],
+        companionFileTemplate: null,
+      });
+    });
   });
 });
