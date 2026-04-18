@@ -69,6 +69,8 @@ describe("Sidebar", () => {
         onRenameSession={vi.fn()}
         onDeleteSession={vi.fn()}
         onSearchSelectSession={vi.fn()}
+        onSearchClear={vi.fn()}
+        onSearchQueryChange={vi.fn()}
         {...overrides}
       />
     );

@@ -328,7 +328,6 @@ export default function App() {
   }
 
   function handleSearchSelectSession(sessionId: string, messageId: string | null, query: string) {
-    console.log("[search] handleSearchSelectSession", { sessionId, messageId, query });
     store.setActiveSession(sessionId);
     setActiveHighlightQuery(query);
     setScrollToMessageId(messageId);
@@ -524,6 +523,11 @@ export default function App() {
         onRenameSession={store.renameSession}
         onDeleteSession={handleDeleteChat}
         onSearchSelectSession={handleSearchSelectSession}
+        onSearchClear={() => { setActiveHighlightQuery(""); setScrollToMessageId(null); }}
+        onSearchQueryChange={(query, scopeContents) => {
+          setActiveHighlightQuery(scopeContents ? query : "");
+          if (!scopeContents) setScrollToMessageId(null);
+        }}
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <ChatView

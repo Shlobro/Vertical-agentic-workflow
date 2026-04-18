@@ -42,7 +42,6 @@ export default function MessageBubble({ message, highlightQuery }: Props) {
 
 function renderHighlighted(text: string, query: string) {
   const q = query.trim();
-  console.log("[search] renderHighlighted", { q, textSnippet: text.slice(0, 40) });
   if (!q) return <>{text}</>;
 
   const parts = text.split(new RegExp(`(${escapeRegex(q)})`, "gi"));

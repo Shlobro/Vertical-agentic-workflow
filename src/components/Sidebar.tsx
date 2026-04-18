@@ -28,6 +28,8 @@ interface Props {
   onRenameSession: (id: string, title: string) => void;
   onDeleteSession: (id: string) => void | Promise<void>;
   onSearchSelectSession: (sessionId: string, messageId: string | null, query: string) => void;
+  onSearchClear: () => void;
+  onSearchQueryChange: (query: string, scopeContents: boolean) => void;
 }
 
 interface SearchScope {
@@ -137,6 +139,8 @@ export default function Sidebar({
   onRenameSession,
   onDeleteSession,
   onSearchSelectSession,
+  onSearchClear,
+  onSearchQueryChange,
 }: Props) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -222,7 +226,11 @@ export default function Sidebar({
   }
 
   function toggleScopeKey(key: keyof SearchScope) {
-    setSearchScope((prev) => ({ ...prev, [key]: !prev[key] }));
+    setSearchScope((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      if (searchQuery) onSearchQueryChange(searchQuery, next.chatContents);
+      return next;
+    });
   }
 
   const scopeEmpty = isScopeEmpty(searchScope);
@@ -230,7 +238,6 @@ export default function Sidebar({
   const filteredProjects = filterProjects(projects, searchQuery, searchScope);
 
   function handleSessionClick(sessionId: string, lastMatchingMessageId: string | null) {
-    console.log("[search] click", { sessionId, lastMatchingMessageId, searchQuery, isSearching });
     if (isSearching && lastMatchingMessageId) {
       onSearchSelectSession(sessionId, lastMatchingMessageId, searchQuery);
     } else {
@@ -273,7 +280,12 @@ export default function Sidebar({
               ref={searchInputRef}
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                const next = e.target.value;
+                setSearchQuery(next);
+                if (!next) onSearchClear();
+                else onSearchQueryChange(next, searchScope.chatContents);
+              }}
               placeholder={scopeEmpty ? "No scope selected" : "Search…"}
               aria-label="Search projects and chats"
               disabled={scopeEmpty}
@@ -287,7 +299,7 @@ export default function Sidebar({
               <button
                 type="button"
                 aria-label="Clear search"
-                onClick={() => { setSearchQuery(""); searchInputRef.current?.focus(); }}
+                onClick={() => { setSearchQuery(""); onSearchClear(); searchInputRef.current?.focus(); }}
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
               >
                 <X size={12} />
