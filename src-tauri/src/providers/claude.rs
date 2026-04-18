@@ -8,6 +8,7 @@ impl ClaudeProvider {
     ) -> (String, Vec<String>) {
         let mut args = vec![
             "--dangerously-skip-permissions".to_string(),
+            "--verbose".to_string(),
             "--print".to_string(),
             "--output-format".to_string(),
             "stream-json".to_string(),
@@ -53,6 +54,7 @@ mod tests {
         let (_, args) =
             ClaudeProvider::build_command("claude-sonnet-4-6", Some("session-1"), "hello");
 
+        assert!(args.contains(&"--verbose".to_string()));
         assert!(args.contains(&"--print".to_string()));
         assert!(args.contains(&"stream-json".to_string()));
         assert!(args.contains(&"--include-partial-messages".to_string()));

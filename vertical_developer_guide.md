@@ -35,7 +35,7 @@ Vertical is a desktop chat client built with Tauri, React, TypeScript, and Rust.
 - `src-tauri/src/lib.rs` wires Tauri, registers the opener plugin, and exposes the `send_message` command.
 - `src-tauri/capabilities/default.json` grants the dialog open permission used by the working-directory picker and the fs mkdir permission used for the fallback default workspace.
 - Provider-specific command construction and JSON parsing live under `src-tauri/src/providers/`.
-- `ClaudeProvider` builds `claude --dangerously-skip-permissions --print --output-format stream-json --include-partial-messages ...`.
+- `ClaudeProvider` builds `claude --dangerously-skip-permissions --verbose --print --output-format stream-json --include-partial-messages ...`.
 - `CodexProvider` builds `codex exec --skip-git-repo-check --full-auto --json ...`, supports GPT and Codex model ids, and maps `:<reasoning-effort>` suffixes into Codex CLI config flags.
 - The command layer captures stderr for user-visible failures, times out stalled provider runs, and tracks running provider processes so the frontend can cancel them.
 - The command layer also resolves common Windows executable suffixes when spawning provider CLIs, falls back to `cmd.exe` for shell-style resolution on Windows, and returns explicit PATH/install errors if a provider executable is unavailable.
