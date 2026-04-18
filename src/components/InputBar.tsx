@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, KeyboardEvent } from "react";
-import { Send, Square, ChevronDown, Check, Folder } from "lucide-react";
+import { Send, Square, ChevronDown, Check } from "lucide-react";
 import { Provider, PROVIDERS, MODELS } from "../types";
 import claudeLogo from "../assets/claude_logo.png";
 import openaiLogo from "../assets/openai_logo.png";
@@ -13,24 +13,20 @@ interface Props {
   streaming: boolean;
   provider: Provider;
   model: string;
-  workingDir: string;
   onProviderChange: (p: Provider) => void;
   onModelChange: (m: string) => void;
   onSend: (text: string) => void;
   onCancel: () => void;
-  onPickWorkingDir: () => void;
 }
 
 export default function InputBar({
   streaming,
   provider,
   model,
-  workingDir,
   onProviderChange,
   onModelChange,
   onSend,
   onCancel,
-  onPickWorkingDir,
 }: Props) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -38,18 +34,19 @@ export default function InputBar({
   const [hasText, setHasText] = useState(false);
 
   useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setOpen(false);
       }
     }
+
     if (open) document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [open]);
 
-  function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
+  function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
       submit();
     }
   }
@@ -66,29 +63,29 @@ export default function InputBar({
   function autoResize() {
     if (!ref.current) return;
     ref.current.style.height = "auto";
-    ref.current.style.height = Math.min(ref.current.scrollHeight, 120) + "px";
+    ref.current.style.height = `${Math.min(ref.current.scrollHeight, 120)}px`;
     setHasText(ref.current.value.trim().length > 0);
   }
 
-  function selectProvider(p: Provider) {
-    onProviderChange(p);
+  function selectProvider(nextProvider: Provider) {
+    onProviderChange(nextProvider);
   }
 
-  function selectModel(m: string) {
-    onModelChange(m);
+  function selectModel(nextModel: string) {
+    onModelChange(nextModel);
     setOpen(false);
   }
 
-  const activeModel = MODELS[provider].find((m) => m.id === model);
-  const shortModelLabel = activeModel?.label.replace(/^(Claude|GPT-\S+)\s*/i, "") || activeModel?.label || model;
-  const dirLabel = workingDir ? workingDir.split(/[\\/]/).pop() || workingDir : null;
+  const activeModel = MODELS[provider].find((item) => item.id === model);
+  const shortModelLabel =
+    activeModel?.label.replace(/^(Claude|GPT-\S+)\s*/i, "") || activeModel?.label || model;
 
   return (
     <div className="px-4 py-3 border-t border-border bg-bg-primary">
-      <div className="flex flex-col bg-surface rounded-xl border border-border px-3 pt-2 pb-2">
-
-        {/* Textarea */}
-        <label htmlFor="chat-input" className="sr-only">Message</label>
+      <div className="flex flex-col rounded-xl border border-border bg-surface px-3 pt-2 pb-2">
+        <label htmlFor="chat-input" className="sr-only">
+          Message
+        </label>
         <textarea
           id="chat-input"
           ref={ref}
@@ -97,57 +94,56 @@ export default function InputBar({
           disabled={streaming}
           onKeyDown={handleKeyDown}
           onInput={autoResize}
-          className="w-full bg-transparent resize-none outline-none text-[17px] text-text-primary placeholder-text-muted leading-relaxed max-h-[120px] overflow-y-auto chat-input-font mb-2"
+          className="chat-input-font mb-2 max-h-[120px] w-full resize-none overflow-y-auto bg-transparent text-[17px] leading-relaxed text-text-primary outline-none placeholder-text-muted"
         />
 
-        {/* Bottom toolbar — always pinned right */}
         <div className="flex items-center justify-end gap-1">
-
-          {/* Provider + model picker */}
           <div ref={dropdownRef} className="relative">
             <button
-              onClick={() => setOpen((o) => !o)}
-              className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs text-text-muted hover:text-text-primary hover:bg-surface-hover transition-all group"
+              onClick={() => setOpen((current) => !current)}
+              className="group flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-text-muted transition-all hover:bg-surface-hover hover:text-text-primary"
             >
-              <img src={LOGOS[provider]} alt={provider} className="w-4 h-4 object-contain opacity-80 group-hover:opacity-100 transition-opacity" />
+              <img
+                src={LOGOS[provider]}
+                alt={provider}
+                className="h-4 w-4 object-contain opacity-80 transition-opacity group-hover:opacity-100"
+              />
               <span className="max-w-[80px] truncate">{shortModelLabel}</span>
               <ChevronDown size={11} className={`transition-transform duration-150 ${open ? "rotate-180" : ""}`} />
             </button>
 
             {open && (
-              <div className="absolute bottom-full right-0 mb-2 w-56 bg-surface border border-border rounded-xl shadow-2xl overflow-hidden z-50">
-                {/* Provider tabs */}
+              <div className="absolute bottom-full right-0 z-50 mb-2 w-56 overflow-hidden rounded-xl border border-border bg-surface shadow-2xl">
                 <div className="flex border-b border-border">
-                  {PROVIDERS.map((p) => (
+                  {PROVIDERS.map((item) => (
                     <button
-                      key={p.id}
-                      onClick={() => selectProvider(p.id)}
+                      key={item.id}
+                      onClick={() => selectProvider(item.id)}
                       className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${
-                        provider === p.id
-                          ? "text-text-primary border-b-2 border-blue-500 bg-surface-hover"
-                          : "text-text-muted hover:text-text-primary hover:bg-surface-hover"
+                        provider === item.id
+                          ? "border-b-2 border-blue-500 bg-surface-hover text-text-primary"
+                          : "text-text-muted hover:bg-surface-hover hover:text-text-primary"
                       }`}
                     >
-                      <img src={LOGOS[p.id]} alt={p.label} className="w-3.5 h-3.5 object-contain" />
-                      {p.id === "claude" ? "Claude" : "OpenAI"}
+                      <img src={LOGOS[item.id]} alt={item.label} className="h-3.5 w-3.5 object-contain" />
+                      {item.id === "claude" ? "Claude" : "OpenAI"}
                     </button>
                   ))}
                 </div>
 
-                {/* Model list */}
-                <div className="py-1 max-h-52 overflow-y-auto">
-                  {MODELS[provider].map((m) => (
+                <div className="max-h-52 overflow-y-auto py-1">
+                  {MODELS[provider].map((item) => (
                     <button
-                      key={m.id}
-                      onClick={() => selectModel(m.id)}
+                      key={item.id}
+                      onClick={() => selectModel(item.id)}
                       className={`w-full flex items-center justify-between px-3 py-2 text-xs transition-colors ${
-                        model === m.id
-                          ? "text-text-primary bg-blue-600/15"
-                          : "text-text-muted hover:text-text-primary hover:bg-surface-hover"
+                        model === item.id
+                          ? "bg-blue-600/15 text-text-primary"
+                          : "text-text-muted hover:bg-surface-hover hover:text-text-primary"
                       }`}
                     >
-                      <span>{m.label}</span>
-                      {model === m.id && <Check size={11} className="text-blue-400 flex-shrink-0" />}
+                      <span>{item.label}</span>
+                      {model === item.id && <Check size={11} className="flex-shrink-0 text-blue-400" />}
                     </button>
                   ))}
                 </div>
@@ -155,27 +151,11 @@ export default function InputBar({
             )}
           </div>
 
-          {/* Folder picker */}
-          <button
-            onClick={onPickWorkingDir}
-            aria-label={workingDir ? `Working directory: ${workingDir}` : "Pick working directory"}
-            title={workingDir || "No working directory set"}
-            className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs transition-all ${
-              workingDir
-                ? "text-blue-400 hover:text-blue-300 hover:bg-surface-hover"
-                : "text-text-muted hover:text-text-primary hover:bg-surface-hover"
-            }`}
-          >
-            <Folder size={14} />
-            {dirLabel && <span className="max-w-[72px] truncate">{dirLabel}</span>}
-          </button>
-
-          {/* Send / Cancel */}
           {streaming ? (
             <button
               onClick={onCancel}
               aria-label="Cancel response"
-              className="w-8 h-8 flex items-center justify-center rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/20 text-red-400 transition-colors hover:bg-red-500/30"
             >
               <Square size={14} />
             </button>
@@ -184,16 +164,14 @@ export default function InputBar({
               onClick={submit}
               disabled={!hasText}
               aria-label="Send message"
-              className="w-8 h-8 flex items-center justify-center rounded-lg bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Send size={14} />
             </button>
           )}
         </div>
       </div>
-      <p className="text-xs text-text-muted mt-1.5 text-center">
-        Enter to send | Shift+Enter for newline
-      </p>
+      <p className="mt-1.5 text-center text-xs text-text-muted">Enter to send | Shift+Enter for newline</p>
     </div>
   );
 }

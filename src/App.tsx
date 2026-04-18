@@ -1,9 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
-import { open, message } from "@tauri-apps/plugin-dialog";
-import { appLocalDataDir } from "@tauri-apps/api/path";
-import { mkdir } from "@tauri-apps/plugin-fs";
+import { open } from "@tauri-apps/plugin-dialog";
 import { useChatStore } from "./store/chatStore";
 import { MessageDoneEvent, MessageErrorEvent, Provider, StreamChunkEvent, MODELS } from "./types";
 import Sidebar from "./components/Sidebar";
@@ -11,17 +9,23 @@ import ChatView from "./components/ChatView";
 import ConfirmDialog from "./components/ConfirmDialog";
 import InputBar from "./components/InputBar";
 
+type PendingDelete =
+  | { kind: "project"; id: string }
+  | { kind: "session"; id: string }
+  | null;
+
 export default function App() {
   const store = useChatStore();
   const activeSession = store.activeSession();
+  const activeProject = store.findProjectBySessionId(store.activeSessionId);
   const unlistenRef = useRef<UnlistenFn[]>([]);
   const [provider, setProvider] = useState<Provider>("claude");
   const [model, setModel] = useState(MODELS.claude[0].id);
-  const [pendingDeleteSessionId, setPendingDeleteSessionId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<PendingDelete>(null);
 
-  function handleProviderChange(p: Provider) {
-    setProvider(p);
-    setModel(MODELS[p][0].id);
+  function handleProviderChange(nextProvider: Provider) {
+    setProvider(nextProvider);
+    setModel(MODELS[nextProvider][0].id);
   }
 
   useEffect(() => {
@@ -41,148 +45,149 @@ export default function App() {
       });
       unlistenRef.current = [u1, u2, u3];
     };
+
     setup().catch((error) => {
       console.error("Failed to bind Tauri event listeners", error);
     });
-    return () => { unlistenRef.current.forEach((u) => u()); };
+
+    return () => {
+      unlistenRef.current.forEach((unlisten) => unlisten());
+    };
   }, []);
 
-  function handleNewChat() {
-    store.addSession(provider, model);
+  async function handleNewProject() {
+    try {
+      const selected = await open({ directory: true, multiple: false });
+      if (typeof selected === "string" && selected) {
+        store.addProject(selected, provider, model);
+      }
+    } catch (error) {
+      console.error("Failed to open project directory picker", error);
+    }
+  }
+
+  function handleNewChat(projectId: string) {
+    store.addSession(projectId, provider, model);
+  }
+
+  function handleDeleteProject(projectId: string) {
+    setPendingDelete({ kind: "project", id: projectId });
   }
 
   function handleDeleteChat(sessionId: string) {
-    const session = store.sessions.find((item) => item.id === sessionId);
-    if (!session) return;
-
-    setPendingDeleteSessionId(sessionId);
+    setPendingDelete({ kind: "session", id: sessionId });
   }
 
   function handleConfirmDelete() {
-    if (!pendingDeleteSessionId) return;
-    store.deleteSession(pendingDeleteSessionId);
-    setPendingDeleteSessionId(null);
+    if (!pendingDelete) return;
+
+    if (pendingDelete.kind === "project") {
+      store.deleteProject(pendingDelete.id);
+    } else {
+      store.deleteSession(pendingDelete.id);
+    }
+    setPendingDelete(null);
   }
 
   function handleCancelDelete() {
-    setPendingDeleteSessionId(null);
-  }
-
-  async function resolveWorkingDir(sess: ReturnType<typeof store.activeSession> & object): Promise<string> {
-    if (sess.workingDir) return sess.workingDir;
-
-    await message(
-      "No working directory selected for this chat. The agent will run in the default folder.",
-      { title: "No Working Directory", kind: "warning" }
-    );
-
-    const dataDir = await appLocalDataDir();
-    const defaultDir = `${dataDir}default`;
-    try {
-      await mkdir(defaultDir, { recursive: true });
-    } catch {
-      // already exists
-    }
-    store.setWorkingDir(sess.id, defaultDir);
-    return defaultDir;
+    setPendingDelete(null);
   }
 
   async function handleSend(text: string) {
-    let sess = store.activeSession();
-    if (!sess) sess = store.addSession(provider, model);
+    const session = store.activeSession();
+    const project = store.findProjectBySessionId(store.activeSessionId);
+    if (!session || !project) return;
 
-    const workingDir = await resolveWorkingDir(sess);
-
-    store.addMessage(sess.id, {
+    store.addMessage(session.id, {
       id: crypto.randomUUID(),
       role: "user",
       text,
     });
 
-    store.addMessage(sess.id, {
+    store.addMessage(session.id, {
       id: crypto.randomUUID(),
       role: "assistant",
       text: "",
       streaming: true,
     });
-    store.setStreaming(sess.id, true);
+    store.setStreaming(session.id, true);
 
     try {
       await invoke("send_message", {
-        sessionUuid: sess.id,
-        provider: sess.provider,
-        model: sess.model,
+        sessionUuid: session.id,
+        provider: session.provider,
+        model: session.model,
         prompt: text,
-        cliSessionId: sess.cliSessionId || null,
-        workingDir,
+        cliSessionId: session.cliSessionId || null,
+        workingDir: project.workingDir,
       });
-    } catch (e) {
-      store.finalizeAssistant(sess.id, `Error: ${formatError(e)}`, "");
+    } catch (error) {
+      store.finalizeAssistant(session.id, `Error: ${formatError(error)}`, "");
     }
   }
 
   async function handleCancel() {
-    const sess = store.activeSession();
-    if (!sess?.isStreaming) return;
+    const session = store.activeSession();
+    if (!session?.isStreaming) return;
 
     try {
-      await invoke("cancel_message", { sessionUuid: sess.id });
-    } catch (e) {
-      store.finalizeAssistant(sess.id, `Error: ${formatError(e)}`, "");
-    }
-  }
-
-  async function handlePickWorkingDir() {
-    const sess = store.activeSession() ?? store.addSession(provider, model);
-
-    try {
-      const selected = await open({ directory: true, multiple: false });
-      if (typeof selected === "string" && selected) {
-        store.setWorkingDir(sess.id, selected);
-      }
+      await invoke("cancel_message", { sessionUuid: session.id });
     } catch (error) {
-      console.error("Failed to open working directory picker", error);
+      store.finalizeAssistant(session.id, `Error: ${formatError(error)}`, "");
     }
   }
 
-  const pendingDeleteSession = pendingDeleteSessionId
-    ? store.sessions.find((session) => session.id === pendingDeleteSessionId) ?? null
-    : null;
+  const pendingDeleteProject =
+    pendingDelete?.kind === "project"
+      ? store.projects.find((project) => project.id === pendingDelete.id) ?? null
+      : null;
+
+  const pendingDeleteSession =
+    pendingDelete?.kind === "session"
+      ? store.findProjectBySessionId(pendingDelete.id)?.sessions.find((session) => session.id === pendingDelete.id) ??
+        null
+      : null;
 
   return (
-    <div className="flex h-screen bg-bg-primary text-text-primary overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-bg-primary text-text-primary">
       <Sidebar
-        sessions={store.sessions}
+        projects={store.projects}
         activeSessionId={store.activeSessionId}
+        onNewProject={handleNewProject}
         onNewChat={handleNewChat}
+        onToggleProject={store.toggleProjectCollapsed}
         onSelectSession={store.setActiveSession}
+        onRenameProject={store.renameProject}
+        onDeleteProject={handleDeleteProject}
         onRenameSession={store.renameSession}
         onDeleteSession={handleDeleteChat}
       />
-      <div className="flex flex-col flex-1 min-w-0">
+      <div className="flex min-w-0 flex-1 flex-col">
         <ChatView session={activeSession} />
-        <InputBar
-          streaming={activeSession?.isStreaming ?? false}
-          provider={provider}
-          model={model}
-          workingDir={activeSession?.workingDir ?? ""}
-          onProviderChange={handleProviderChange}
-          onModelChange={setModel}
-          onSend={handleSend}
-          onCancel={handleCancel}
-          onPickWorkingDir={handlePickWorkingDir}
-        />
+        {activeSession && activeProject && (
+          <InputBar
+            streaming={activeSession.isStreaming}
+            provider={provider}
+            model={model}
+            onProviderChange={handleProviderChange}
+            onModelChange={setModel}
+            onSend={handleSend}
+            onCancel={handleCancel}
+          />
+        )}
       </div>
       <ConfirmDialog
-        open={pendingDeleteSession !== null}
-        title="Delete chat?"
+        open={pendingDelete !== null}
+        title={pendingDeleteProject ? "Delete project?" : "Delete chat?"}
         description={
-          pendingDeleteSession
-            ? `This will permanently remove "${pendingDeleteSession.title}" from the sidebar.`
-            : ""
+          pendingDeleteProject
+            ? `This will permanently remove "${pendingDeleteProject.title}" and all chats inside it.`
+            : pendingDeleteSession
+              ? `This will permanently remove "${pendingDeleteSession.title}" from the project.`
+              : ""
         }
-        confirmLabel="Delete chat"
-        cancelLabel="Keep chat"
+        confirmLabel={pendingDeleteProject ? "Delete project" : "Delete chat"}
+        cancelLabel={pendingDeleteProject ? "Keep project" : "Keep chat"}
         onConfirm={handleConfirmDelete}
         onCancel={handleCancelDelete}
       />

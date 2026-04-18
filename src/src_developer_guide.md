@@ -1,7 +1,7 @@
 # Frontend Developer Guide
 
 ## Purpose
-`src/` contains the entire React frontend for Vertical. It owns layout, session state, empty states, conversation rendering, and the invocation bridge into the Tauri backend.
+`src/` contains the entire React frontend for Vertical. It owns layout, project and session state, empty states, conversation rendering, and the invocation bridge into the Tauri backend.
 
 ## Folder Map
 - `main.tsx`: React entry point.
@@ -15,15 +15,15 @@
 ## Frontend Data Flow
 1. `App.tsx` reads the Zustand store and derives the active session through `activeSession()`.
 2. UI events call store actions directly for local state changes.
-3. `Sidebar.tsx` owns per-chat presentation details such as the inline rename field, while `App.tsx` owns destructive confirmation state and renders the themed confirmation dialog before calling store delete actions.
-4. Choosing a working directory from the `InputBar` creates a session first if the shell is still in the no-chat state, so the picker can configure where the first agent run will start.
-5. Sending a prompt writes optimistic user and assistant messages before calling Tauri.
+3. `Sidebar.tsx` owns project-tree presentation details such as inline rename fields, collapse controls, and nested chat actions, while `App.tsx` owns destructive confirmation state and renders the themed confirmation dialog before calling store delete actions.
+4. Choosing `New project` opens the folder picker first. After a folder is chosen, the store creates a project named after the folder plus one empty chat inside it.
+5. Sending a prompt writes optimistic user and assistant messages before calling Tauri with the selected chat and its parent project's working directory.
 6. Tauri events flow back into the same store to mutate the in-progress assistant message and session metadata.
 7. `message-error` events may include partial assistant text. The frontend should preserve that text and append the failure reason instead of replacing it with a blank error state.
 
 ## Guardrails
 - Keep `App.tsx` as orchestration glue, not a dumping ground for UI logic.
-- Put reusable UI behavior into `components/`, state transitions into `store/`, and contracts into `types/`.
+- Put reusable UI behavior into `components/`, nested project/session state transitions into `store/`, and contracts into `types/`.
 - Keep invoke failures and event-subscription failures visible in developer tooling; do not silently swallow bridge errors.
 - Frontend behavior changes should land with Vitest coverage close to the touched surface, usually in the same folder as the code under test.
 - If a folder grows past a small, scannable surface area, split it by responsibility instead of letting one folder become mixed.

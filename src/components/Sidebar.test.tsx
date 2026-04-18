@@ -1,28 +1,42 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import Sidebar from "./Sidebar";
-import { ChatSession } from "../types";
+import { ChatProject } from "../types";
 
-const sessions: ChatSession[] = [
+const projects: ChatProject[] = [
   {
-    id: "session-1",
-    title: "First chat",
-    provider: "claude",
-    model: "claude-sonnet-4-6",
-    cliSessionId: "",
-    messages: [],
-    isStreaming: false,
-    workingDir: "",
+    id: "project-1",
+    title: "Alpha",
+    workingDir: "D:\\Projects\\Alpha",
+    collapsed: false,
+    sessions: [
+      {
+        id: "session-1",
+        title: "First chat",
+        provider: "claude",
+        model: "claude-sonnet-4-6",
+        cliSessionId: "",
+        messages: [],
+        isStreaming: false,
+      },
+    ],
   },
   {
-    id: "session-2",
-    title: "Second chat",
-    provider: "codex",
-    model: "gpt-5.4",
-    cliSessionId: "",
-    messages: [],
-    isStreaming: true,
-    workingDir: "",
+    id: "project-2",
+    title: "Beta",
+    workingDir: "D:\\Projects\\Beta",
+    collapsed: false,
+    sessions: [
+      {
+        id: "session-2",
+        title: "Second chat",
+        provider: "codex",
+        model: "gpt-5.4",
+        cliSessionId: "",
+        messages: [],
+        isStreaming: true,
+      },
+    ],
   },
 ];
 
@@ -31,39 +45,70 @@ describe("Sidebar", () => {
     cleanup();
   });
 
-  it("renames a chat from the actions menu", () => {
-    const onRenameSession = vi.fn();
+  it("renames a project from the actions menu", () => {
+    const onRenameProject = vi.fn();
 
     render(
       <Sidebar
-        sessions={sessions}
+        projects={projects}
         activeSessionId="session-2"
+        onNewProject={vi.fn()}
         onNewChat={vi.fn()}
+        onToggleProject={vi.fn()}
         onSelectSession={vi.fn()}
-        onRenameSession={onRenameSession}
+        onRenameProject={onRenameProject}
+        onDeleteProject={vi.fn()}
+        onRenameSession={vi.fn()}
         onDeleteSession={vi.fn()}
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Open actions for Second chat" }));
-    fireEvent.click(screen.getByRole("button", { name: "Rename chat" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open actions for project Beta" }));
+    fireEvent.click(screen.getByRole("button", { name: "Rename project" }));
 
-    const input = screen.getByLabelText("Rename chat");
-    fireEvent.change(input, { target: { value: "Renamed chat" } });
+    const input = screen.getByLabelText("Rename project");
+    fireEvent.change(input, { target: { value: "Renamed project" } });
     fireEvent.keyDown(input, { key: "Enter" });
 
-    expect(onRenameSession).toHaveBeenCalledWith("session-2", "Renamed chat");
+    expect(onRenameProject).toHaveBeenCalledWith("project-2", "Renamed project");
   });
 
-  it("deletes a chat from the actions menu", () => {
+  it("creates a new chat inside a project", () => {
+    const onNewChat = vi.fn();
+
+    render(
+      <Sidebar
+        projects={projects}
+        activeSessionId="session-1"
+        onNewProject={vi.fn()}
+        onNewChat={onNewChat}
+        onToggleProject={vi.fn()}
+        onSelectSession={vi.fn()}
+        onRenameProject={vi.fn()}
+        onDeleteProject={vi.fn()}
+        onRenameSession={vi.fn()}
+        onDeleteSession={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "New chat in Alpha" }));
+
+    expect(onNewChat).toHaveBeenCalledWith("project-1");
+  });
+
+  it("deletes a chat from the chat actions menu", () => {
     const onDeleteSession = vi.fn();
 
     render(
       <Sidebar
-        sessions={sessions}
+        projects={projects}
         activeSessionId="session-1"
+        onNewProject={vi.fn()}
         onNewChat={vi.fn()}
+        onToggleProject={vi.fn()}
         onSelectSession={vi.fn()}
+        onRenameProject={vi.fn()}
+        onDeleteProject={vi.fn()}
         onRenameSession={vi.fn()}
         onDeleteSession={onDeleteSession}
       />
@@ -73,5 +118,28 @@ describe("Sidebar", () => {
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
     expect(onDeleteSession).toHaveBeenCalledWith("session-1");
+  });
+
+  it("toggles a project collapse button", () => {
+    const onToggleProject = vi.fn();
+
+    render(
+      <Sidebar
+        projects={projects}
+        activeSessionId="session-1"
+        onNewProject={vi.fn()}
+        onNewChat={vi.fn()}
+        onToggleProject={onToggleProject}
+        onSelectSession={vi.fn()}
+        onRenameProject={vi.fn()}
+        onDeleteProject={vi.fn()}
+        onRenameSession={vi.fn()}
+        onDeleteSession={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Collapse Alpha" }));
+
+    expect(onToggleProject).toHaveBeenCalledWith("project-1");
   });
 });

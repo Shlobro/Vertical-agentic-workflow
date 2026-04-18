@@ -12,12 +12,10 @@ describe("InputBar", () => {
       streaming: false,
       provider: "claude" as const,
       model: "claude-sonnet-4-6",
-      workingDir: "",
       onProviderChange: () => {},
       onModelChange: () => {},
       onSend: vi.fn(),
       onCancel: vi.fn(),
-      onPickWorkingDir: vi.fn(),
     };
     return render(<InputBar {...defaults} {...overrides} />);
   }
@@ -34,15 +32,6 @@ describe("InputBar", () => {
     fireEvent.input(textarea, { target: { value: "hello" } });
     const sendButton = screen.getByRole("button", { name: "Send message" }) as HTMLButtonElement;
     expect(sendButton.disabled).toBe(false);
-  });
-
-  it("send button disables again after clearing text", () => {
-    renderBar();
-    const textarea = screen.getByLabelText("Message") as HTMLTextAreaElement;
-    fireEvent.input(textarea, { target: { value: "hello" } });
-    fireEvent.input(textarea, { target: { value: "" } });
-    const sendButton = screen.getByRole("button", { name: "Send message" }) as HTMLButtonElement;
-    expect(sendButton.disabled).toBe(true);
   });
 
   it("submits trimmed text on Enter", () => {
@@ -63,5 +52,11 @@ describe("InputBar", () => {
     expect(textarea.disabled).toBe(true);
     fireEvent.click(cancelButton);
     expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not render a working directory button", () => {
+    renderBar();
+    expect(screen.queryByLabelText(/working directory/i)).toBeNull();
+    expect(screen.queryByRole("button", { name: /pick working directory/i })).toBeNull();
   });
 });

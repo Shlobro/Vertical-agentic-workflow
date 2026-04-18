@@ -16,52 +16,48 @@ vi.mock("@tauri-apps/api/event", () => ({
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({
   open: (...args: unknown[]) => openMock(...args),
-  message: vi.fn(),
-}));
-
-vi.mock("@tauri-apps/api/path", () => ({
-  appLocalDataDir: vi.fn(async () => "C:\\Users\\Tester\\AppData\\Local\\Vertical\\"),
-}));
-
-vi.mock("@tauri-apps/plugin-fs", () => ({
-  mkdir: vi.fn(async () => undefined),
 }));
 
 vi.mock("./components/Sidebar", () => ({
   default: ({
-    sessions,
+    projects,
+    onNewProject,
+    onDeleteProject,
     onDeleteSession,
   }: {
-    sessions: Array<{ id: string; title: string }>;
-    onDeleteSession: (id: string) => void | Promise<void>;
+    projects: Array<{ id: string; title: string; sessions: Array<{ id: string; title: string }> }>;
+    onNewProject: () => void | Promise<void>;
+    onDeleteProject: (id: string) => void;
+    onDeleteSession: (id: string) => void;
   }) => (
     <div data-testid="sidebar">
-      {sessions.map((session) => (
-        <button key={session.id} onClick={() => onDeleteSession(session.id)}>
-          Delete {session.title}
-        </button>
+      <button onClick={() => void onNewProject()}>New project</button>
+      {projects.map((project) => (
+        <div key={project.id}>
+          <button onClick={() => onDeleteProject(project.id)}>Delete project {project.title}</button>
+          {project.sessions.map((session) => (
+            <button key={session.id} onClick={() => onDeleteSession(session.id)}>
+              Delete {session.title}
+            </button>
+          ))}
+        </div>
       ))}
     </div>
   ),
 }));
 
 vi.mock("./components/ChatView", () => ({
-  default: () => <div data-testid="chat-view" />,
+  default: ({ session }: { session: unknown }) => <div data-testid="chat-view">{session ? "active" : "empty"}</div>,
 }));
 
 vi.mock("./components/InputBar", () => ({
-  default: ({ onPickWorkingDir, workingDir }: { onPickWorkingDir: () => void; workingDir: string }) => (
-    <div>
-      <button onClick={onPickWorkingDir}>Pick working directory</button>
-      <span data-testid="working-dir">{workingDir}</span>
-    </div>
-  ),
+  default: () => <div data-testid="input-bar" />,
 }));
 
 describe("App", () => {
   beforeEach(() => {
     useChatStore.setState({
-      sessions: [],
+      projects: [],
       activeSessionId: null,
     });
     listenMock.mockReset();
@@ -73,12 +69,12 @@ describe("App", () => {
     cleanup();
   });
 
-  it("creates a session and stores the selected working directory when none exists", async () => {
+  it("creates a project only after a folder is selected", async () => {
     openMock.mockResolvedValue("D:\\Projects\\Workspace");
 
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Pick working directory" }));
+    fireEvent.click(screen.getByRole("button", { name: "New project" }));
 
     await waitFor(() => {
       expect(openMock).toHaveBeenCalledWith({ directory: true, multiple: false });
@@ -86,38 +82,45 @@ describe("App", () => {
 
     await waitFor(() => {
       const state = useChatStore.getState();
-      expect(state.sessions).toHaveLength(1);
-      expect(state.activeSession()?.workingDir).toBe("D:\\Projects\\Workspace");
+      expect(state.projects).toHaveLength(1);
+      expect(state.projects[0].workingDir).toBe("D:\\Projects\\Workspace");
+      expect(state.projects[0].sessions).toHaveLength(1);
     });
-
-    expect(screen.getByTestId("working-dir").textContent).toBe("D:\\Projects\\Workspace");
   });
 
-  it("confirms before deleting a chat", async () => {
-    const store = useChatStore.getState();
-    const session = store.addSession("claude", "claude-sonnet-4-6");
+  it("does not create a project when folder selection is cancelled", async () => {
+    openMock.mockResolvedValue(null);
 
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: `Delete ${session.title}` }));
-    expect(screen.getByText(`This will permanently remove "${session.title}" from the sidebar.`)).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Delete chat" }));
+    fireEvent.click(screen.getByRole("button", { name: "New project" }));
 
     await waitFor(() => {
-      expect(useChatStore.getState().sessions).toHaveLength(0);
+      expect(openMock).toHaveBeenCalled();
     });
+
+    expect(useChatStore.getState().projects).toHaveLength(0);
   });
 
-  it("keeps the chat when delete confirmation is cancelled", async () => {
+  it("confirms before deleting a project", async () => {
     const store = useChatStore.getState();
-    const session = store.addSession("claude", "claude-sonnet-4-6");
+    const project = store.addProject("D:\\Projects\\Alpha", "claude", "claude-sonnet-4-6");
 
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: `Delete ${session.title}` }));
-    fireEvent.click(screen.getByRole("button", { name: "Keep chat" }));
+    fireEvent.click(screen.getByRole("button", { name: `Delete project ${project.title}` }));
+    expect(screen.getByText(`This will permanently remove "${project.title}" and all chats inside it.`)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Delete project" }));
 
-    expect(useChatStore.getState().sessions).toHaveLength(1);
-    expect(useChatStore.getState().sessions[0].id).toBe(session.id);
+    await waitFor(() => {
+      expect(useChatStore.getState().projects).toHaveLength(0);
+    });
+  });
+
+  it("hides the input bar when no chat is selected", () => {
+    render(<App />);
+
+    expect(screen.queryByTestId("input-bar")).toBeNull();
+    expect(screen.getByTestId("chat-view").textContent).toBe("empty");
   });
 });
