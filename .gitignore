@@ -22,3 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.tmp/
+tmp/
+temp/
+Temp/
+*.tmp
