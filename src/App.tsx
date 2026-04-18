@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
+import { open, message } from "@tauri-apps/plugin-dialog";
+import { appLocalDataDir } from "@tauri-apps/api/path";
+import { mkdir } from "@tauri-apps/plugin-fs";
 import { useChatStore } from "./store/chatStore";
 import { MessageDoneEvent, MessageErrorEvent, Provider, StreamChunkEvent, MODELS } from "./types";
 import Sidebar from "./components/Sidebar";
@@ -46,9 +49,30 @@ export default function App() {
     store.addSession(provider, model);
   }
 
+  async function resolveWorkingDir(sess: ReturnType<typeof store.activeSession> & object): Promise<string> {
+    if (sess.workingDir) return sess.workingDir;
+
+    await message(
+      "No working directory selected for this chat. The agent will run in the default folder.",
+      { title: "No Working Directory", kind: "warning" }
+    );
+
+    const dataDir = await appLocalDataDir();
+    const defaultDir = `${dataDir}default`;
+    try {
+      await mkdir(defaultDir, { recursive: true });
+    } catch {
+      // already exists
+    }
+    store.setWorkingDir(sess.id, defaultDir);
+    return defaultDir;
+  }
+
   async function handleSend(text: string) {
     let sess = store.activeSession();
     if (!sess) sess = store.addSession(provider, model);
+
+    const workingDir = await resolveWorkingDir(sess);
 
     store.addMessage(sess.id, {
       id: crypto.randomUUID(),
@@ -71,6 +95,7 @@ export default function App() {
         model: sess.model,
         prompt: text,
         cliSessionId: sess.cliSessionId || null,
+        workingDir,
       });
     } catch (e) {
       store.finalizeAssistant(sess.id, `Error: ${formatError(e)}`, "");
@@ -88,6 +113,16 @@ export default function App() {
     }
   }
 
+  async function handlePickWorkingDir() {
+    const sess = store.activeSession();
+    if (!sess) return;
+
+    const selected = await open({ directory: true, multiple: false });
+    if (typeof selected === "string" && selected) {
+      store.setWorkingDir(sess.id, selected);
+    }
+  }
+
   return (
     <div className="flex h-screen bg-bg-primary text-text-primary overflow-hidden">
       <Sidebar
@@ -102,10 +137,12 @@ export default function App() {
           streaming={activeSession?.isStreaming ?? false}
           provider={provider}
           model={model}
+          workingDir={activeSession?.workingDir ?? ""}
           onProviderChange={handleProviderChange}
           onModelChange={setModel}
           onSend={handleSend}
           onCancel={handleCancel}
+          onPickWorkingDir={handlePickWorkingDir}
         />
       </div>
     </div>

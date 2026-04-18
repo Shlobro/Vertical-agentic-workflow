@@ -12,10 +12,12 @@ describe("InputBar", () => {
       streaming: false,
       provider: "claude" as const,
       model: "claude-sonnet-4-6",
+      workingDir: "",
       onProviderChange: () => {},
       onModelChange: () => {},
       onSend: vi.fn(),
       onCancel: vi.fn(),
+      onPickWorkingDir: vi.fn(),
     };
     return render(<InputBar {...defaults} {...overrides} />);
   }

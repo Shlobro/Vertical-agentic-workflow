@@ -14,6 +14,7 @@ interface ChatStore {
   finalizeAssistant: (sessionId: string, text: string, cliSessionId: string) => void;
   setStreaming: (sessionId: string, streaming: boolean) => void;
   updateSessionTitle: (sessionId: string) => void;
+  setWorkingDir: (sessionId: string, dir: string) => void;
 }
 
 export const useChatStore = create<ChatStore>((set, get) => ({
@@ -29,6 +30,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       cliSessionId: "",
       messages: [],
       isStreaming: false,
+      workingDir: "",
     };
     set((s) => ({ sessions: [...s.sessions, sess], activeSessionId: sess.id }));
     return sess;
@@ -85,6 +87,14 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     set((s) => ({
       sessions: s.sessions.map((sess) =>
         sess.id === sessionId ? { ...sess, isStreaming: streaming } : sess
+      ),
+    }));
+  },
+
+  setWorkingDir(sessionId, dir) {
+    set((s) => ({
+      sessions: s.sessions.map((sess) =>
+        sess.id === sessionId ? { ...sess, workingDir: dir } : sess
       ),
     }));
   },

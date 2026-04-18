@@ -75,6 +75,7 @@ pub async fn send_message(
     model: String,
     prompt: String,
     cli_session_id: Option<String>,
+    working_dir: String,
 ) -> Result<(), String> {
     let processes = processes.inner().clone();
     let (exe, args) = match provider.as_str() {
@@ -85,6 +86,7 @@ pub async fn send_message(
 
     let child = Command::new(&exe)
         .args(&args)
+        .current_dir(&working_dir)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()

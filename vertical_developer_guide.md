@@ -16,8 +16,8 @@ Vertical is a desktop chat client built with Tauri, React, TypeScript, and Rust.
 ## Runtime Flow
 1. The app boots through Vite/Tauri. `src/main.tsx` mounts `App` and imports `src/styles/globals.css`.
 2. `src/App.tsx` subscribes to Tauri events once on mount: `stream-chunk`, `message-done`, and `message-error`. Event payload contracts live in `src/types/index.ts`.
-3. `Sidebar` creates or switches chat sessions. Each session stores provider, model, title, messages, streaming state, and the provider CLI session identifier.
-4. `InputBar` appends the user prompt and a placeholder assistant message into the Zustand store, then invokes the Rust command `send_message`.
+3. `Sidebar` creates or switches chat sessions. Each session stores provider, model, title, messages, streaming state, working directory, and the provider CLI session identifier.
+4. `InputBar` appends the user prompt and a placeholder assistant message into the Zustand store, then invokes the Rust command `send_message`. If no working directory is set for the session, a warning dialog is shown and the agent runs in `<appLocalDataDir>/default`.
 5. `src-tauri/src/commands/chat.rs` maps the provider string to a command builder, starts the external CLI process, tracks the running child per chat session, reads JSON from stdout plus diagnostics from stderr, applies a provider timeout, and emits normalized stream updates back to the frontend.
 6. As events arrive, the store updates the in-progress assistant message in place. Completion persists the provider CLI session id so later prompts can resume the same conversation, while failures and cancellations emit a dedicated error event.
 

@@ -23,6 +23,10 @@
       "csp": "default-src 'self' customprotocol: asset: http://asset.localhost https://asset.localhost; connect-src 'self' ipc: http://ipc.localhost https://ipc.localhost http://localhost:1430 ws://localhost:1430 http://127.0.0.1:1430 ws://127.0.0.1:1430; img-src 'self' asset: http://asset.localhost https://asset.localhost data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self' 'unsafe-inline'"
     }
   },
+  "plugins": {
+    "dialog": null,
+    "fs": null
+  },
   "bundle": {
     "active": true,
     "targets": "all",

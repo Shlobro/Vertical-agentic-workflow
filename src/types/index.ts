@@ -15,6 +15,7 @@ export interface ChatSession {
   cliSessionId: string;
   messages: Message[];
   isStreaming: boolean;
+  workingDir: string;
 }
 
 export interface StreamChunkEvent {

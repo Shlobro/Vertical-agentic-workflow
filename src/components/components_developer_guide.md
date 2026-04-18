@@ -7,7 +7,7 @@
 - `Sidebar.tsx`: New chat creation and chat-session navigation. Provider/model selection has moved to `InputBar`.
 - `ChatView.tsx`: Transcript area plus no-session and no-message empty states, including provider-specific empty-state copy.
 - `MessageBubble.tsx`: Animated user and assistant message card, including typing placeholder behavior.
-- `InputBar.tsx`: Provider selector, model selector, textarea, submit keyboard handling, auto-resize, and send/cancel controls. Provider/model values are passed in as props from `App.tsx`.
+- `InputBar.tsx`: Textarea on top, bottom-right toolbar row with provider/model selector, folder picker button, and send/cancel controls. Provider/model/workingDir values are passed in as props from `App.tsx`. The folder button shows the selected directory's base name when set.
 - `InputBar.test.tsx`: Coverage for keyboard submission, accessible labelling, and cancel-state controls.
 
 ## Guardrails
