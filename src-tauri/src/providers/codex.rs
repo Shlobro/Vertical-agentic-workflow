@@ -1,0 +1,75 @@
+pub struct CodexProvider;
+
+impl CodexProvider {
+    pub fn build_command(model: &str, session_id: Option<&str>, prompt: &str) -> (String, Vec<String>) {
+        let mut args = vec![
+            "exec".to_string(),
+            "--skip-git-repo-check".to_string(),
+            "--full-auto".to_string(),
+            "--json".to_string(),
+        ];
+        if !model.is_empty() {
+            args.push("--model".to_string());
+            args.push(model.to_string());
+        }
+        if let Some(sid) = session_id {
+            if !sid.is_empty() {
+                args.push("resume".to_string());
+                args.push(sid.to_string());
+            }
+        }
+        args.push(prompt.to_string());
+        ("codex".to_string(), args)
+    }
+
+    pub fn extract_session_id(json_str: &str) -> Option<String> {
+        if let Ok(val) = serde_json::from_str::<serde_json::Value>(json_str) {
+            return find_thread_id(&val);
+        }
+        None
+    }
+
+    pub fn extract_text(json_str: &str) -> Option<String> {
+        if let Ok(val) = serde_json::from_str::<serde_json::Value>(json_str) {
+            if let Some(result) = val.get("result") {
+                return Some(result.as_str().unwrap_or("").to_string());
+            }
+            if let Some(output) = val.get("output") {
+                return Some(output.as_str().unwrap_or("").to_string());
+            }
+        }
+        None
+    }
+}
+
+fn find_thread_id(val: &serde_json::Value) -> Option<String> {
+    match val {
+        serde_json::Value::Object(map) => {
+            if let Some(tid) = map.get("thread_id") {
+                if let Some(s) = tid.as_str() {
+                    return Some(s.to_string());
+                }
+            }
+            if let Some(sid) = map.get("session_id") {
+                if let Some(s) = sid.as_str() {
+                    return Some(s.to_string());
+                }
+            }
+            for v in map.values() {
+                if let Some(found) = find_thread_id(v) {
+                    return Some(found);
+                }
+            }
+            None
+        }
+        serde_json::Value::Array(arr) => {
+            for v in arr {
+                if let Some(found) = find_thread_id(v) {
+                    return Some(found);
+                }
+            }
+            None
+        }
+        _ => None,
+    }
+}
