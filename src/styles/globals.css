@@ -10,6 +10,7 @@
   --color-text-muted: #6b6b8a;
 
   --font-family-sans: "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-family-input: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
 }
 
 * {
@@ -37,6 +38,11 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #3a3a5a;
+}
+
+/* Chat input font */
+.chat-input-font {
+  font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
 }
 
 /* Select styling */

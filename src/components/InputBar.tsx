@@ -136,7 +136,7 @@ export default function InputBar({ disabled, streaming, provider, model, onProvi
           disabled={streaming}
           onKeyDown={handleKeyDown}
           onInput={autoResize}
-          className="flex-1 bg-transparent resize-none outline-none text-sm text-text-primary placeholder-text-muted leading-relaxed max-h-[120px] overflow-y-auto"
+          className="flex-1 bg-transparent resize-none outline-none text-[17px] text-text-primary placeholder-text-muted leading-relaxed max-h-[120px] overflow-y-auto chat-input-font"
         />
 
         {streaming ? (
