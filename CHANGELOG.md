@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Split the combined provider+model picker into two separate dropdowns (provider and model) in the InputBar to prevent layout shift when switching providers with different model counts. Default models: Claude Sonnet 4.6, GPT-5.4 Medium, Gemini 3 Flash.
 - Added Gemini CLI as a third provider with full session resume via UUID, stream-json output parsing, and model selection (Gemini 2.5 Pro, Flash, Flash Lite).
 - Added `gemini_logo.svg` and wired it into the provider icon map and provider selector tab.
 - Added a post-folder-selection checklist that detects missing `CLAUDE.md`, `AGENTS.md`, and `GEMINI.md` files in the chosen project root and can create the selected defaults before opening the project.

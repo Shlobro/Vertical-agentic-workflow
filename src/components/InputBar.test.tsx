@@ -12,12 +12,12 @@ describe("InputBar", () => {
       streaming: false,
       provider: "claude" as const,
       model: "claude-sonnet-4-6",
-      onProviderChange: () => {},
-      onModelChange: () => {},
+      onProviderChange: vi.fn(),
+      onModelChange: vi.fn(),
       onSend: vi.fn(),
       onCancel: vi.fn(),
     };
-    return render(<InputBar {...defaults} {...overrides} />);
+    return { ...render(<InputBar {...defaults} {...overrides} />), ...defaults, ...overrides };
   }
 
   it("send button is disabled when textarea is empty", () => {
@@ -58,5 +58,29 @@ describe("InputBar", () => {
     renderBar();
     expect(screen.queryByLabelText(/working directory/i)).toBeNull();
     expect(screen.queryByRole("button", { name: /pick working directory/i })).toBeNull();
+  });
+
+  it("renders separate provider and model dropdowns", () => {
+    renderBar();
+    expect(screen.getByRole("button", { name: "Select provider" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Select model" })).toBeTruthy();
+  });
+
+  it("opens provider dropdown and calls onProviderChange when a provider is clicked", () => {
+    const onProviderChange = vi.fn();
+    renderBar({ onProviderChange });
+    fireEvent.click(screen.getByRole("button", { name: "Select provider" }));
+    const openAIOption = screen.getByText("OpenAI");
+    fireEvent.click(openAIOption);
+    expect(onProviderChange).toHaveBeenCalledWith("codex");
+  });
+
+  it("opens model dropdown and calls onModelChange when a model is clicked", () => {
+    const onModelChange = vi.fn();
+    renderBar({ onModelChange });
+    fireEvent.click(screen.getByRole("button", { name: "Select model" }));
+    const opusOption = screen.getByText("Claude Opus 4.7");
+    fireEvent.click(opusOption);
+    expect(onModelChange).toHaveBeenCalledWith("claude-opus-4-7");
   });
 });

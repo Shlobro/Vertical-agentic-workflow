@@ -62,6 +62,12 @@ export const PROVIDERS: { id: Provider; label: string; logo: string }[] = [
   { id: "gemini", label: "Gemini CLI", logo: "gemini_logo.svg" },
 ];
 
+export const DEFAULT_MODELS: Record<Provider, string> = {
+  claude: "claude-sonnet-4-6",
+  codex: "gpt-5.4",
+  gemini: "gemini-3-flash-preview",
+};
+
 export const MODELS: Record<Provider, { id: string; label: string }[]> = {
   gemini: [
     { id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro (Preview)" },

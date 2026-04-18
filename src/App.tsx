@@ -13,6 +13,7 @@ import {
   Provider,
   StreamChunkEvent,
   MODELS,
+  DEFAULT_MODELS,
 } from "./types";
 import Sidebar from "./components/Sidebar";
 import ChatView from "./components/ChatView";
@@ -65,7 +66,7 @@ export default function App() {
   const hydrationCompleteRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [defaultProvider, setDefaultProvider] = useState<Provider>("claude");
-  const [defaultModel, setDefaultModel] = useState(MODELS.claude[0].id);
+  const [defaultModel, setDefaultModel] = useState(DEFAULT_MODELS.claude);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete>(null);
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
@@ -92,7 +93,7 @@ export default function App() {
   }, [rememberedCompanionFileTemplate]);
 
   function handleProviderChange(nextProvider: Provider) {
-    const nextModel = MODELS[nextProvider][0].id;
+    const nextModel = DEFAULT_MODELS[nextProvider];
     setDefaultProvider(nextProvider);
     setDefaultModel(nextModel);
     if (activeSession) {

@@ -23,20 +23,25 @@ export default function InputBar({
   onCancel,
 }: Props) {
   const ref = useRef<HTMLTextAreaElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const [open, setOpen] = useState(false);
+  const providerDropdownRef = useRef<HTMLDivElement>(null);
+  const modelDropdownRef = useRef<HTMLDivElement>(null);
+  const [providerOpen, setProviderOpen] = useState(false);
+  const [modelOpen, setModelOpen] = useState(false);
   const [hasText, setHasText] = useState(false);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setOpen(false);
+      if (providerDropdownRef.current && !providerDropdownRef.current.contains(event.target as Node)) {
+        setProviderOpen(false);
+      }
+      if (modelDropdownRef.current && !modelDropdownRef.current.contains(event.target as Node)) {
+        setModelOpen(false);
       }
     }
 
-    if (open) document.addEventListener("mousedown", handleClickOutside);
+    if (providerOpen || modelOpen) document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [open]);
+  }, [providerOpen, modelOpen]);
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Enter" && !event.shiftKey) {
@@ -63,16 +68,16 @@ export default function InputBar({
 
   function selectProvider(nextProvider: Provider) {
     onProviderChange(nextProvider);
+    setProviderOpen(false);
   }
 
   function selectModel(nextModel: string) {
     onModelChange(nextModel);
-    setOpen(false);
+    setModelOpen(false);
   }
 
-  const activeModel = MODELS[provider].find((item) => item.id === model);
-  const shortModelLabel =
-    activeModel?.label.replace(/^(Claude|GPT-\S+|Gemini)\s*/i, "") || activeModel?.label || model;
+  const activeProvider = PROVIDERS.find((p) => p.id === provider);
+  const activeModel = MODELS[provider].find((m) => m.id === model);
 
   return (
     <div className="px-4 py-3 border-t border-border bg-bg-primary">
@@ -92,43 +97,60 @@ export default function InputBar({
         />
 
         <div className="flex items-center justify-end gap-1">
-          <div ref={dropdownRef} className="relative">
+          {/* Provider dropdown */}
+          <div ref={providerDropdownRef} className="relative">
             <button
-              onClick={() => setOpen((current) => !current)}
-              className="group flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-text-muted transition-all hover:bg-surface-hover hover:text-text-primary"
+              onClick={() => { setProviderOpen((v) => !v); setModelOpen(false); }}
+              aria-label="Select provider"
+              className="group flex w-24 items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-text-muted transition-all hover:bg-surface-hover hover:text-text-primary"
             >
               <img
                 src={PROVIDER_ICONS[provider]}
                 alt={provider}
-                className="h-4 w-4 object-contain opacity-80 transition-opacity group-hover:opacity-100"
+                className="h-4 w-4 flex-shrink-0 object-contain opacity-80 transition-opacity group-hover:opacity-100"
               />
-              <span className="max-w-[80px] truncate">{shortModelLabel}</span>
-              <ChevronDown size={11} className={`transition-transform duration-150 ${open ? "rotate-180" : ""}`} />
+              <span className="flex-1 truncate">
+                {activeProvider?.id === "claude" ? "Claude" : activeProvider?.id === "codex" ? "OpenAI" : "Gemini"}
+              </span>
+              <ChevronDown size={11} className={`transition-transform duration-150 ${providerOpen ? "rotate-180" : ""}`} />
             </button>
 
-            {open && (
-              <div className="absolute bottom-full right-0 z-50 mb-2 w-56 overflow-hidden rounded-xl border border-border bg-surface shadow-2xl">
-                <div className="flex border-b border-border">
-                  {PROVIDERS.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => selectProvider(item.id)}
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${
-                        provider === item.id
-                          ? "border-b-2 border-blue-500 bg-surface-hover text-text-primary"
-                          : "text-text-muted hover:bg-surface-hover hover:text-text-primary"
-                      }`}
-                    >
-                      <img
-                        src={PROVIDER_ICONS[item.id]}
-                        alt={item.label}
-                        className="h-3.5 w-3.5 object-contain"
-                      />
-                      {item.id === "claude" ? "Claude" : item.id === "codex" ? "OpenAI" : "Gemini"}
-                    </button>
-                  ))}
-                </div>
+            {providerOpen && (
+              <div className="absolute bottom-full right-0 z-50 mb-2 w-36 overflow-hidden rounded-xl border border-border bg-surface shadow-2xl py-1">
+                {PROVIDERS.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => selectProvider(item.id)}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-xs transition-colors ${
+                      provider === item.id
+                        ? "bg-blue-600/15 text-text-primary"
+                        : "text-text-muted hover:bg-surface-hover hover:text-text-primary"
+                    }`}
+                  >
+                    <img src={PROVIDER_ICONS[item.id]} alt={item.label} className="h-3.5 w-3.5 object-contain" />
+                    <span>{item.id === "claude" ? "Claude" : item.id === "codex" ? "OpenAI" : "Gemini"}</span>
+                    {provider === item.id && <Check size={11} className="ml-auto flex-shrink-0 text-blue-400" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
+          {/* Model dropdown */}
+          <div ref={modelDropdownRef} className="relative">
+            <button
+              onClick={() => { setModelOpen((v) => !v); setProviderOpen(false); }}
+              aria-label="Select model"
+              className="group flex w-36 items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-text-muted transition-all hover:bg-surface-hover hover:text-text-primary"
+            >
+              <span className="flex-1 truncate text-left">
+                {activeModel?.label.replace(/^(Claude|Gemini)\s*/i, "") || activeModel?.label || model}
+              </span>
+              <ChevronDown size={11} className={`transition-transform duration-150 ${modelOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            {modelOpen && (
+              <div className="absolute bottom-full right-0 z-50 mb-2 w-52 overflow-hidden rounded-xl border border-border bg-surface shadow-2xl">
                 <div className="max-h-52 overflow-y-auto py-1">
                   {MODELS[provider].map((item) => (
                     <button
