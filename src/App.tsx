@@ -47,8 +47,8 @@ export default function App() {
   }
 
   async function handleSend(text: string) {
-    const sess = store.activeSession();
-    if (!sess) return;
+    let sess = store.activeSession();
+    if (!sess) sess = store.addSession(provider, model);
 
     store.addMessage(sess.id, {
       id: crypto.randomUUID(),
@@ -99,7 +99,6 @@ export default function App() {
       <div className="flex flex-col flex-1 min-w-0">
         <ChatView session={activeSession} />
         <InputBar
-          disabled={!activeSession}
           streaming={activeSession?.isStreaming ?? false}
           provider={provider}
           model={model}

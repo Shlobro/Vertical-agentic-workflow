@@ -10,7 +10,6 @@ const LOGOS: Record<Provider, string> = {
 };
 
 interface Props {
-  disabled: boolean;
   streaming: boolean;
   provider: Provider;
   model: string;
@@ -20,10 +19,11 @@ interface Props {
   onCancel: () => void;
 }
 
-export default function InputBar({ disabled, streaming, provider, model, onProviderChange, onModelChange, onSend, onCancel }: Props) {
+export default function InputBar({ streaming, provider, model, onProviderChange, onModelChange, onSend, onCancel }: Props) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
+  const [hasText, setHasText] = useState(false);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -44,9 +44,10 @@ export default function InputBar({ disabled, streaming, provider, model, onProvi
 
   function submit() {
     const text = ref.current?.value.trim();
-    if (!text || disabled) return;
+    if (!text) return;
     ref.current!.value = "";
     ref.current!.style.height = "auto";
+    setHasText(false);
     onSend(text);
   }
 
@@ -54,6 +55,7 @@ export default function InputBar({ disabled, streaming, provider, model, onProvi
     if (!ref.current) return;
     ref.current.style.height = "auto";
     ref.current.style.height = Math.min(ref.current.scrollHeight, 120) + "px";
+    setHasText(ref.current.value.trim().length > 0);
   }
 
   function selectProvider(p: Provider) {
@@ -150,7 +152,7 @@ export default function InputBar({ disabled, streaming, provider, model, onProvi
         ) : (
           <button
             onClick={submit}
-            disabled={disabled}
+            disabled={!hasText}
             aria-label="Send message"
             className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
