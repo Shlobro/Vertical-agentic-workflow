@@ -14,6 +14,10 @@ describe("InputBar", () => {
       <InputBar
         disabled={false}
         streaming={false}
+        provider="claude"
+        model="claude-sonnet-4-6"
+        onProviderChange={() => {}}
+        onModelChange={() => {}}
         onSend={onSend}
         onCancel={() => {}}
       />,
@@ -34,6 +38,10 @@ describe("InputBar", () => {
       <InputBar
         disabled={false}
         streaming={true}
+        provider="claude"
+        model="claude-sonnet-4-6"
+        onProviderChange={() => {}}
+        onModelChange={() => {}}
         onSend={() => {}}
         onCancel={onCancel}
       />,

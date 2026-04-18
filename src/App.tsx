@@ -1,8 +1,8 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { useChatStore } from "./store/chatStore";
-import { MessageDoneEvent, MessageErrorEvent, Provider, StreamChunkEvent } from "./types";
+import { MessageDoneEvent, MessageErrorEvent, Provider, StreamChunkEvent, MODELS } from "./types";
 import Sidebar from "./components/Sidebar";
 import ChatView from "./components/ChatView";
 import InputBar from "./components/InputBar";
@@ -11,6 +11,13 @@ export default function App() {
   const store = useChatStore();
   const activeSession = store.activeSession();
   const unlistenRef = useRef<UnlistenFn[]>([]);
+  const [provider, setProvider] = useState<Provider>("claude");
+  const [model, setModel] = useState(MODELS.claude[0].id);
+
+  function handleProviderChange(p: Provider) {
+    setProvider(p);
+    setModel(MODELS[p][0].id);
+  }
 
   useEffect(() => {
     const setup = async () => {
@@ -35,7 +42,7 @@ export default function App() {
     return () => { unlistenRef.current.forEach((u) => u()); };
   }, []);
 
-  function handleNewChat(provider: Provider, model: string) {
+  function handleNewChat() {
     store.addSession(provider, model);
   }
 
@@ -94,6 +101,10 @@ export default function App() {
         <InputBar
           disabled={!activeSession}
           streaming={activeSession?.isStreaming ?? false}
+          provider={provider}
+          model={model}
+          onProviderChange={handleProviderChange}
+          onModelChange={setModel}
           onSend={handleSend}
           onCancel={handleCancel}
         />

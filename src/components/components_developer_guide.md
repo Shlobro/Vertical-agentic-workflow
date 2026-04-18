@@ -4,10 +4,10 @@
 `src/components/` holds the UI pieces that render the chat shell. Components are thin and mostly controlled by props; state that matters across the app belongs in Zustand or higher-level orchestration.
 
 ## Current Components
-- `Sidebar.tsx`: Provider selection, model selection, new chat creation, and chat-session navigation. Provider labels are presentational only; the canonical model catalog still lives in `src/types/index.ts`.
+- `Sidebar.tsx`: New chat creation and chat-session navigation. Provider/model selection has moved to `InputBar`.
 - `ChatView.tsx`: Transcript area plus no-session and no-message empty states, including provider-specific empty-state copy.
 - `MessageBubble.tsx`: Animated user and assistant message card, including typing placeholder behavior.
-- `InputBar.tsx`: Textarea, submit keyboard handling, auto-resize, and send/cancel controls for the active request.
+- `InputBar.tsx`: Provider selector, model selector, textarea, submit keyboard handling, auto-resize, and send/cancel controls. Provider/model values are passed in as props from `App.tsx`.
 - `InputBar.test.tsx`: Coverage for keyboard submission, accessible labelling, and cancel-state controls.
 
 ## Guardrails
