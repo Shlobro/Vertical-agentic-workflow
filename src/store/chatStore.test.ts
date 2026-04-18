@@ -160,7 +160,7 @@ describe("chatStore", () => {
     expect(useChatStore.getState().projects[0].sessions[0].title).toBe("Project planning");
   });
 
-  it("updates session provider and model and clears stale cli session ids", () => {
+  it("updates session provider and model without clearing cli session id", () => {
     const store = useChatStore.getState();
     const project = store.addProject("D:\\Projects\\Alpha", "claude", "claude-sonnet-4-6");
     const session = project.sessions[0];
@@ -171,7 +171,7 @@ describe("chatStore", () => {
     expect(useChatStore.getState().projects[0].sessions[0]).toMatchObject({
       provider: "codex",
       model: "gpt-5.4",
-      cliSessionId: "",
+      cliSessionId: "claude-session-1",
     });
   });
 });

@@ -12,7 +12,6 @@ import {
   PersistedWorkspaceState,
   Provider,
   StreamChunkEvent,
-  MODELS,
   DEFAULT_MODELS,
 } from "./types";
 import Sidebar from "./components/Sidebar";
@@ -20,6 +19,7 @@ import ChatView from "./components/ChatView";
 import ConfirmDialog from "./components/ConfirmDialog";
 import InputBar from "./components/InputBar";
 import MissingCompanionFilesDialog from "./components/MissingCompanionFilesDialog";
+import ProviderSwitchDialog from "./components/ProviderSwitchDialog";
 
 type PendingDelete =
   | { kind: "project"; id: string }
@@ -68,6 +68,11 @@ export default function App() {
   const [defaultProvider, setDefaultProvider] = useState<Provider>("claude");
   const [defaultModel, setDefaultModel] = useState(DEFAULT_MODELS.claude);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete>(null);
+  const [providerSwitchDialog, setProviderSwitchDialog] = useState<{
+    toProvider: Provider;
+    toModel: string;
+  } | null>(null);
+  const pendingContextHandoffRef = useRef(false);
   const [scrollToMessageId, setScrollToMessageId] = useState<string | null>(null);
   const [activeHighlightQuery, setActiveHighlightQuery] = useState<string>("");
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
@@ -96,11 +101,30 @@ export default function App() {
 
   function handleProviderChange(nextProvider: Provider) {
     const nextModel = DEFAULT_MODELS[nextProvider];
+    if (activeSession && activeSession.messages.length > 0 && activeSession.provider !== nextProvider) {
+      setProviderSwitchDialog({ toProvider: nextProvider, toModel: nextModel });
+      return;
+    }
+    commitProviderChange(nextProvider, nextModel);
+  }
+
+  function commitProviderChange(nextProvider: Provider, nextModel: string) {
     setDefaultProvider(nextProvider);
     setDefaultModel(nextModel);
     if (activeSession) {
       store.updateSessionConfig(activeSession.id, nextProvider, nextModel);
     }
+  }
+
+  function handleProviderSwitchConfirm() {
+    if (!providerSwitchDialog) return;
+    commitProviderChange(providerSwitchDialog.toProvider, providerSwitchDialog.toModel);
+    pendingContextHandoffRef.current = true;
+    setProviderSwitchDialog(null);
+  }
+
+  function handleProviderSwitchCancel() {
+    setProviderSwitchDialog(null);
   }
 
   function handleModelChange(nextModel: string) {
@@ -456,31 +480,59 @@ export default function App() {
     const project = store.findProjectBySessionId(store.activeSessionId);
     if (!session || !project) return;
 
-    store.addMessage(session.id, {
+    const isHandoff = pendingContextHandoffRef.current;
+    pendingContextHandoffRef.current = false;
+
+    if (isHandoff) {
+      const priorMessages = session.messages.filter((m) => !m.isContextHandoff);
+      const transcript = priorMessages
+        .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.text}`)
+        .join("\n\n");
+      const handoffText = `You are an AI assistant taking over a conversation that was started with a different AI. Continue seamlessly as the assistant — the user should not be aware that a switch happened. Here is the conversation so far:\n\n${transcript}`;
+
+      store.addMessage(session.id, {
+        id: crypto.randomUUID(),
+        role: "user",
+        text: handoffText,
+        isContextHandoff: true,
+      });
+    }
+
+    const freshSession = store.activeSession();
+    if (!freshSession) return;
+
+    store.addMessage(freshSession.id, {
       id: crypto.randomUUID(),
       role: "user",
       text,
     });
 
-    store.addMessage(session.id, {
+    store.addMessage(freshSession.id, {
       id: crypto.randomUUID(),
       role: "assistant",
       text: "",
       streaming: true,
     });
-    store.setStreaming(session.id, true);
+    store.setStreaming(freshSession.id, true);
+
+    const handoffMessage = isHandoff
+      ? freshSession.messages.find((m) => m.isContextHandoff)
+      : null;
+    const promptToSend = handoffMessage
+      ? `${handoffMessage.text}\n\nRespond only to this new message:\n\n${text}`
+      : text;
 
     try {
       await invoke("send_message", {
-        sessionUuid: session.id,
-        provider: session.provider,
-        model: session.model,
-        prompt: text,
-        cliSessionId: session.cliSessionId || null,
+        sessionUuid: freshSession.id,
+        provider: freshSession.provider,
+        model: freshSession.model,
+        prompt: promptToSend,
+        cliSessionId: isHandoff ? null : (freshSession.cliSessionId || null),
         workingDir: project.workingDir,
       });
     } catch (error) {
-      store.finalizeAssistant(session.id, `Error: ${formatError(error)}`, "");
+      store.finalizeAssistant(freshSession.id, `Error: ${formatError(error)}`, "");
     }
   }
 
@@ -561,6 +613,12 @@ export default function App() {
         cancelLabel={pendingDeleteProject ? "Keep project" : "Keep chat"}
         onConfirm={handleConfirmDelete}
         onCancel={handleCancelDelete}
+      />
+      <ProviderSwitchDialog
+        open={providerSwitchDialog !== null}
+        toProvider={providerSwitchDialog?.toProvider ?? "claude"}
+        onConfirm={handleProviderSwitchConfirm}
+        onCancel={handleProviderSwitchCancel}
       />
       <MissingCompanionFilesDialog
         open={companionDialogState !== null}

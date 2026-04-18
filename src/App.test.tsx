@@ -183,7 +183,6 @@ describe("App", () => {
     const store = useChatStore.getState();
     const project = store.addProject("D:\\Projects\\Alpha", "claude", "claude-sonnet-4-6");
     const session = project.sessions[0];
-    store.finalizeAssistant(session.id, "", "claude-session-1");
     const invokeMock = vi.mocked(invoke);
     invokeMock.mockImplementation(async (command, _args) => {
       if (command === "load_workspace_state") {
@@ -203,6 +202,7 @@ describe("App", () => {
 
     render(<App />);
 
+    // Switch provider on a session with no messages — no dialog shown
     fireEvent.click(screen.getByRole("button", { name: "Switch provider" }));
     fireEvent.click(screen.getByRole("button", { name: "Switch model" }));
 
@@ -220,6 +220,72 @@ describe("App", () => {
         cliSessionId: null,
         workingDir: "D:\\Projects\\Alpha",
       });
+    });
+  });
+
+  it("shows provider switch dialog mid-chat and sends context handoff on confirm", async () => {
+    const sessionId = crypto.randomUUID();
+    const projectId = crypto.randomUUID();
+    const messages = [
+      { id: "m1", role: "user" as const, text: "hello" },
+      { id: "m2", role: "assistant" as const, text: "world", provider: "claude" as const, model: "claude-sonnet-4-6" },
+    ];
+    const workspaceState = {
+      projects: [{
+        id: projectId,
+        title: "Alpha",
+        workingDir: "D:\\Projects\\Alpha",
+        collapsed: false,
+        lastActiveSessionId: sessionId,
+        sessions: [{
+          id: sessionId,
+          title: "Chat 1",
+          provider: "claude" as const,
+          model: "claude-sonnet-4-6",
+          cliSessionId: "claude-session-1",
+          messages,
+          isStreaming: false,
+        }],
+      }],
+      activeSessionId: sessionId,
+      sidebarWidthRatio: null,
+      companionFileSelectionDefaults: null,
+      companionFileTemplate: null,
+    };
+
+    const invokeMock = vi.mocked(invoke);
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "load_workspace_state") return workspaceState;
+      if (command === "load_project_state") return null;
+      return undefined;
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("chat-view").textContent).toBe("active");
+    });
+
+    // Switch provider mid-chat — dialog should appear
+    fireEvent.click(screen.getByRole("button", { name: "Switch provider" }));
+    expect(screen.getByText(/switching providers mid-chat/i)).toBeTruthy();
+
+    // Confirm the switch
+    fireEvent.click(screen.getByRole("button", { name: "Yes, switch" }));
+
+    // Send the next message — handoff context is prepended
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() => {
+      const calls = invokeMock.mock.calls.filter((c) => c[0] === "send_message");
+      expect(calls).toHaveLength(1);
+      const args = calls[0][1] as Record<string, unknown>;
+      expect(args.cliSessionId).toBeNull();
+      expect(args.provider).toBe("codex");
+      expect(typeof args.prompt).toBe("string");
+      expect((args.prompt as string)).toContain("hello");
+      expect((args.prompt as string)).toContain("Continue seamlessly as the assistant");
+      expect((args.prompt as string)).toContain("Respond only to this new message");
     });
   });
 

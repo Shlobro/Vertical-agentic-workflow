@@ -1,15 +1,22 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
+import { ChevronDown } from "lucide-react";
 import { Message, Provider } from "../types";
 import { PROVIDER_ICONS } from "../assets/providerIcons";
 
 interface Props {
   message: Message;
+  sessionProvider?: Provider;
   highlightQuery?: string;
-  provider?: Provider;
 }
 
-export default function MessageBubble({ message, highlightQuery, provider }: Props) {
+export default function MessageBubble({ message, sessionProvider, highlightQuery }: Props) {
   const isUser = message.role === "user";
+  const resolvedProvider = message.provider ?? sessionProvider;
+
+  if (message.isContextHandoff) {
+    return <HandoffBlock message={message} />;
+  }
 
   return (
     <motion.div
@@ -18,12 +25,15 @@ export default function MessageBubble({ message, highlightQuery, provider }: Pro
       transition={{ duration: 0.2 }}
       className={`flex w-full ${isUser ? "justify-end" : "justify-start"} mb-3`}
     >
-      {!isUser && provider && (
+      {!isUser && resolvedProvider && (
         <img
-          src={PROVIDER_ICONS[provider]}
-          alt={`${provider} provider`}
+          src={PROVIDER_ICONS[resolvedProvider]}
+          alt={`${resolvedProvider} provider`}
           className="w-4 h-4 object-contain opacity-70 flex-shrink-0 mt-3 mr-2 self-start"
         />
+      )}
+      {!isUser && !resolvedProvider && (
+        <div className="w-4 h-4 flex-shrink-0 mt-3 mr-2 self-start" />
       )}
       <div
         className={`
@@ -35,7 +45,7 @@ export default function MessageBubble({ message, highlightQuery, provider }: Pro
         `}
       >
         {message.streaming && !message.text ? (
-          provider ? <ProviderSpinner provider={provider} /> : <TypingIndicator />
+          resolvedProvider ? <ProviderSpinner provider={resolvedProvider} /> : <TypingIndicator />
         ) : (
           <>
             {highlightQuery
@@ -43,6 +53,37 @@ export default function MessageBubble({ message, highlightQuery, provider }: Pro
               : message.text}
             {message.streaming && <span className="animate-pulse ml-1" aria-hidden="true">|</span>}
           </>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
+function HandoffBlock({ message }: { message: Message }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2 }}
+      className="flex w-full justify-start mb-3"
+    >
+      <div className="w-full max-w-[70%] rounded-xl border border-border bg-surface/50 overflow-hidden">
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="flex w-full items-center justify-between px-3 py-2 text-xs text-text-muted hover:text-text-primary transition-colors"
+        >
+          <span>Context from previous conversation</span>
+          <ChevronDown
+            size={12}
+            className={`flex-shrink-0 transition-transform duration-150 ${open ? "rotate-180" : ""}`}
+          />
+        </button>
+        {open && (
+          <div className="px-3 pb-3 text-xs text-text-muted whitespace-pre-wrap border-t border-border pt-2 max-h-48 overflow-y-auto">
+            {message.text.replace(/^You are an AI assistant taking over.*?Here is the conversation so far:\n\n/s, "")}
+          </div>
         )}
       </div>
     </motion.div>

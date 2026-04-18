@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ChatSession } from "../types";
+import { ChatSession, PROVIDERS } from "../types";
 import MessageBubble from "./MessageBubble";
 
 interface Props {
@@ -32,13 +32,12 @@ export default function ChatView({ session, highlightQuery, scrollToMessageId }:
   }
 
   if (session.messages.length === 0) {
+    const providerLabel = PROVIDERS.find((p) => p.id === session.provider)?.label ?? session.provider;
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center space-y-2">
           <p className="text-2xl font-semibold text-text-primary">Vertical</p>
-          <p className="text-text-muted text-sm">
-            Start a conversation with {session.provider === "claude" ? "Claude Code" : "OpenAI / Codex CLI"}
-          </p>
+          <p className="text-text-muted text-sm">Start a conversation with {providerLabel}</p>
         </div>
       </div>
     );
@@ -56,8 +55,8 @@ export default function ChatView({ session, highlightQuery, scrollToMessageId }:
         >
           <MessageBubble
             message={msg}
+            sessionProvider={session.provider}
             highlightQuery={highlightQuery}
-            provider={session.provider}
           />
         </div>
       ))}

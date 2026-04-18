@@ -1,6 +1,12 @@
 # Changelog
 
 ## Unreleased
+- Added per-message `provider` and `model` fields stamped on assistant messages at finalization, so each message bubble displays the logo of the provider that generated it regardless of subsequent provider changes on the same session.
+- Added an `isContextHandoff` flag on `Message` to mark the synthetic transcript injected when switching providers mid-chat.
+- Switching providers on a session that already has messages now shows a `ProviderSwitchDialog` warning the user that the full chat history will be sent to the new provider. The dialog has "Yes, switch" and "Cancel" options and always appears (no suppress option until a settings screen exists).
+- On confirm, the provider switch commits and the next send automatically prepends the full prior transcript as a silent context-handoff message. That message renders as a collapsible "Context from previous conversation" block in the chat, not a normal bubble.
+- The CLI session id is no longer cleared when the provider changes in the selector — it is cleared only when a message is actually sent after a confirmed handoff, so the user can revert before sending without losing resume state.
+- The sidebar chat row logo now reflects the provider of the last assistant message in the session rather than the current session provider, so it updates to the new provider only after the first reply arrives.
 - Replaced the green pulsing dot on active sidebar chat rows with a spinning provider logo while the chat is streaming. The logo returns to its static state when the stream ends.
 - Replaced the three-dot typing indicator with a spinning provider logo during the assistant thinking phase (streaming message with no text yet). The logo spins continuously at 20px and falls back to the dot indicator if no provider is supplied.
 - Added a live search bar next to the "New Project" button in the sidebar. A `⋯` button opens a dropdown with three checkboxes — Project names, Chat names, Chat contents — controlling what is searched. Default is project and chat names. If all boxes are unchecked the search silently falls back to project and chat names. Projects/chats with no match are hidden; a project name match reveals all its chats. Matching text in titles is highlighted with a yellow `<mark>`. Clicking a chat that matched on message content selects it and scrolls to the last matching message, highlighted with a yellow ring. Clearing search restores the prior collapsed state.

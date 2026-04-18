@@ -5,6 +5,7 @@
 
 ## Current Scope
 - `index.ts`: Provider union, message/session/project interfaces, persisted workspace payloads, companion-file dialog contracts, Tauri event payloads, provider catalog, and model catalog used by the UI.
+- `Message` carries optional `provider` and `model` fields (populated on assistant messages at finalization) so each bubble can display the correct provider logo independent of the session's current provider. The `isContextHandoff` flag marks the synthetic transcript message injected when switching providers mid-chat.
 - `ChatProject` carries `lastActiveSessionId` so the app can reopen the latest chat per project after reloading from disk.
 - `PersistedWorkspaceState` also carries `sidebarWidthRatio` so shell-level layout state survives app restarts and scales proportionally with future window-size changes.
 - `PersistedWorkspaceState` also carries the remembered default selection for the missing-companion-file checklist shown during project onboarding and the optional remembered custom template for future new projects.

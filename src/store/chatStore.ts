@@ -212,15 +212,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       projects: state.projects.map((project) => ({
         ...project,
         sessions: project.sessions.map((session) =>
-          session.id === id
-            ? {
-                ...session,
-                provider,
-                model,
-                cliSessionId:
-                  session.provider === provider && session.model === model ? session.cliSessionId : "",
-              }
-            : session
+          session.id === id ? { ...session, provider, model } : session
         ),
       })),
     }));
@@ -287,7 +279,13 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           const messages = [...session.messages];
           const lastMessage = messages[messages.length - 1];
           if (lastMessage?.role === "assistant") {
-            messages[messages.length - 1] = { ...lastMessage, text, streaming: false };
+            messages[messages.length - 1] = {
+              ...lastMessage,
+              text,
+              streaming: false,
+              provider: session.provider,
+              model: session.model,
+            };
           }
           return {
             ...session,

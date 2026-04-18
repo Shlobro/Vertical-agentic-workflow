@@ -508,21 +508,24 @@ export default function Sidebar({
                               onClick={() => handleSessionClick(session.id, lastMatchingMessageId)}
                               className="flex flex-1 min-w-0 items-center gap-2 px-3 py-2 text-left"
                             >
-                              {session.isStreaming ? (
-                                <motion.img
-                                  src={PROVIDER_ICONS[session.provider]}
-                                  alt={`${session.provider} provider`}
-                                  className="h-[13px] w-[13px] flex-shrink-0 object-contain opacity-85"
-                                  animate={{ rotate: 360 }}
-                                  transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
-                                />
-                              ) : (
-                                <img
-                                  src={PROVIDER_ICONS[session.provider]}
-                                  alt={`${session.provider} provider`}
-                                  className="h-[13px] w-[13px] flex-shrink-0 object-contain opacity-85"
-                                />
-                              )}
+                              {(() => {
+                                const lastMsgProvider = [...session.messages].reverse().find((m) => m.provider)?.provider ?? session.provider;
+                                return session.isStreaming ? (
+                                  <motion.img
+                                    src={PROVIDER_ICONS[lastMsgProvider]}
+                                    alt={`${lastMsgProvider} provider`}
+                                    className="h-[13px] w-[13px] flex-shrink-0 object-contain opacity-85"
+                                    animate={{ rotate: 360 }}
+                                    transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
+                                  />
+                                ) : (
+                                  <img
+                                    src={PROVIDER_ICONS[lastMsgProvider]}
+                                    alt={`${lastMsgProvider} provider`}
+                                    className="h-[13px] w-[13px] flex-shrink-0 object-contain opacity-85"
+                                  />
+                                );
+                              })()}
                               <span className="truncate flex-1">
                                 {titleMatches
                                   ? highlightText(session.title, searchQuery)

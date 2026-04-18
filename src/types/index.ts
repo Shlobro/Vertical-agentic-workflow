@@ -6,6 +6,9 @@ export interface Message {
   role: "user" | "assistant";
   text: string;
   streaming?: boolean;
+  provider?: Provider;
+  model?: string;
+  isContextHandoff?: boolean;
 }
 
 export interface ChatSession {
