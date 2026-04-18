@@ -1,4 +1,4 @@
-export type Provider = "claude" | "codex";
+export type Provider = "claude" | "codex" | "gemini";
 export type CompanionFileName = "CLAUDE.md" | "AGENTS.md" | "GEMINI.md";
 
 export interface Message {
@@ -59,9 +59,17 @@ export interface MessageErrorEvent {
 export const PROVIDERS: { id: Provider; label: string; logo: string }[] = [
   { id: "claude", label: "Claude Code", logo: "claude_logo.png" },
   { id: "codex", label: "OpenAI / Codex CLI", logo: "openai_logo.png" },
+  { id: "gemini", label: "Gemini CLI", logo: "gemini_logo.svg" },
 ];
 
 export const MODELS: Record<Provider, { id: string; label: string }[]> = {
+  gemini: [
+    { id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro (Preview)" },
+    { id: "gemini-3-flash-preview", label: "Gemini 3 Flash (Preview)" },
+    { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
+    { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
+    { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite" },
+  ],
   claude: [
     { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
     { id: "claude-opus-4-7", label: "Claude Opus 4.7" },

@@ -39,6 +39,7 @@ Vertical is a desktop chat client built with Tauri, React, TypeScript, and Rust.
 - Persistence commands live under `src-tauri/src/commands/persistence.rs` and own on-disk workspace and project state.
 - Companion markdown-file inspection and optional creation also live under `src-tauri/src/commands/persistence.rs` so the frontend does not reimplement repo-root filesystem behavior.
 - Streaming events carry the best known full assistant text for the active request, normalizing providers that emit either deltas, cumulative snapshots, or nested assistant-message payloads.
+- Three providers are supported: Claude Code CLI (`claude`), OpenAI Codex CLI (`codex`), and Gemini CLI (`gemini`). All three support session resume via a stored session identifier.
 
 ## Change Map
 - Application shell, workspace hydration, and autosave orchestration: `src/App.tsx`

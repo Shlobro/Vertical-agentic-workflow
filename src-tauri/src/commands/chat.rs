@@ -9,7 +9,7 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::Mutex as AsyncMutex;
 
-use crate::providers::{ClaudeProvider, CodexProvider};
+use crate::providers::{ClaudeProvider, CodexProvider, GeminiProvider};
 
 type SharedChild = Arc<AsyncMutex<tokio::process::Child>>;
 const PROVIDER_TIMEOUT: Duration = Duration::from_secs(600);
@@ -82,6 +82,7 @@ pub async fn send_message(
     let (exe, args) = match provider.as_str() {
         "claude" => ClaudeProvider::build_command(&model, cli_session_id.as_deref(), &prompt),
         "codex" => CodexProvider::build_command(&model, cli_session_id.as_deref(), &prompt),
+        "gemini" => GeminiProvider::build_command(&model, cli_session_id.as_deref(), &prompt),
         _ => return Err(format!("Unknown provider: {provider}")),
     };
 
@@ -222,7 +223,7 @@ async fn read_stdout(
                     }
                 }
 
-                if let Some(text) = try_extract_stream_text(&line) {
+                if let Some(text) = try_extract_stream_text(&provider, &line) {
                     state.streamed_text = merge_stream_text(&state.streamed_text, &text);
                     let _ = app.emit(
                         "stream-chunk",
@@ -350,6 +351,7 @@ fn finalize_text(provider: &str, state: &StreamState) -> String {
     }
 }
 
+
 fn finalize_session_id(provider: &str, state: &StreamState) -> String {
     if !state.cli_session_id.is_empty() {
         return state.cli_session_id.clone();
@@ -362,6 +364,7 @@ fn extract_session_id(provider: &str, json_str: &str) -> Option<String> {
     match provider {
         "claude" => ClaudeProvider::extract_session_id(json_str),
         "codex" => CodexProvider::extract_session_id(json_str),
+        "gemini" => GeminiProvider::extract_session_id(json_str),
         _ => None,
     }
 }
@@ -396,7 +399,10 @@ fn merge_stream_text(existing: &str, incoming: &str) -> String {
     merged
 }
 
-fn try_extract_stream_text(line: &str) -> Option<String> {
+fn try_extract_stream_text(provider: &str, line: &str) -> Option<String> {
+    if provider == "gemini" {
+        return GeminiProvider::try_extract_stream_text(line);
+    }
     let val: serde_json::Value = serde_json::from_str(line).ok()?;
     extract_text_from_value(&val)
 }
@@ -596,6 +602,7 @@ fn format_missing_provider_error(
     let provider_name = match provider {
         "codex" => "Codex CLI",
         "claude" => "Claude Code CLI",
+        "gemini" => "Gemini CLI",
         _ => exe,
     };
 
@@ -644,19 +651,19 @@ mod tests {
     #[test]
     fn extracts_claude_stream_text() {
         let line = r#"{"message":{"content":[{"type":"text","text":"hello"}]}}"#;
-        assert_eq!(try_extract_stream_text(line).as_deref(), Some("hello"));
+        assert_eq!(try_extract_stream_text("claude", line).as_deref(), Some("hello"));
     }
 
     #[test]
     fn extracts_claude_partial_message_text() {
         let line = r#"{"type":"assistant","partial_message":"hello"}"#;
-        assert_eq!(try_extract_stream_text(line).as_deref(), Some("hello"));
+        assert_eq!(try_extract_stream_text("claude", line).as_deref(), Some("hello"));
     }
 
     #[test]
     fn extracts_codex_completed_agent_message_text() {
         let line = r#"{"type":"item.completed","item":{"type":"agent_message","content":[{"type":"output_text","text":"hello"}]}}"#;
-        assert_eq!(try_extract_stream_text(line).as_deref(), Some("hello"));
+        assert_eq!(try_extract_stream_text("codex", line).as_deref(), Some("hello"));
     }
 
     #[test]

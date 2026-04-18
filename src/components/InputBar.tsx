@@ -72,7 +72,7 @@ export default function InputBar({
 
   const activeModel = MODELS[provider].find((item) => item.id === model);
   const shortModelLabel =
-    activeModel?.label.replace(/^(Claude|GPT-\S+)\s*/i, "") || activeModel?.label || model;
+    activeModel?.label.replace(/^(Claude|GPT-\S+|Gemini)\s*/i, "") || activeModel?.label || model;
 
   return (
     <div className="px-4 py-3 border-t border-border bg-bg-primary">
@@ -124,7 +124,7 @@ export default function InputBar({
                         alt={item.label}
                         className="h-3.5 w-3.5 object-contain"
                       />
-                      {item.id === "claude" ? "Claude" : "OpenAI"}
+                      {item.id === "claude" ? "Claude" : item.id === "codex" ? "OpenAI" : "Gemini"}
                     </button>
                   ))}
                 </div>

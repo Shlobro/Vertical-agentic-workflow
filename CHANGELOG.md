@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- Added Gemini CLI as a third provider with full session resume via UUID, stream-json output parsing, and model selection (Gemini 2.5 Pro, Flash, Flash Lite).
+- Added `gemini_logo.svg` and wired it into the provider icon map and provider selector tab.
 - Added a post-folder-selection checklist that detects missing `CLAUDE.md`, `AGENTS.md`, and `GEMINI.md` files in the chosen project root and can create the selected defaults before opening the project.
 - Persisted the remembered default checkbox selection for the companion-file checklist in workspace state so later project selections reuse the user's last choice.
 - Added a shared template editor to the missing-file checklist, including `Edit default content`, `Restore system default`, and an optional remembered custom template for future new projects.
