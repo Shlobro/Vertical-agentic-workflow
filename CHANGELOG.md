@@ -3,6 +3,7 @@
 ## Unreleased
 - Added a post-folder-selection checklist that detects missing `CLAUDE.md`, `AGENTS.md`, and `GEMINI.md` files in the chosen project root and can create the selected defaults before opening the project.
 - Persisted the remembered default checkbox selection for the companion-file checklist in workspace state so later project selections reuse the user's last choice.
+- Added a shared template editor to the missing-file checklist, including `Edit default content`, `Restore system default`, and an optional remembered custom template for future new projects.
 - Added frontend and Rust tests covering the missing-companion-file onboarding flow, checkbox defaults, and repo-root file creation without overwriting existing files.
 - Added a draggable left-sidebar resize handle with `ew-resize` cursor feedback and bounded width updates in the app shell.
 - Added frontend tests covering the sidebar resize handle contract and drag-based width changes.

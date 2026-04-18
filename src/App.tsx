@@ -29,11 +29,32 @@ const DEFAULT_SIDEBAR_WIDTH = 288;
 const MIN_SIDEBAR_WIDTH = 240;
 const MAX_SIDEBAR_WIDTH_RATIO = 0.75;
 const COMPANION_FILE_NAMES: CompanionFileName[] = ["CLAUDE.md", "AGENTS.md", "GEMINI.md"];
+const SYSTEM_COMPANION_FILE_TEMPLATE = `- always start by reading \`vertical_developer_guide.md\` and then read any other relevant \`*_developer_guide.md\` files for the folders you will modify.
+- always read the \`.md\` file in every folder you work in. if there is no \`.md\` file in that folder, create one named \`<folder>_developer_guide.md\` and write it for developers who are new to the codebase. these files should never be over 500 lines long.
+- when changing any file, update the \`.md\` file in that folder and in ancestor folders when the developer-facing architecture or behavior changed. these \`.md\` files should never be longer than 500 lines long.
+- no code file generated or edited should exceed 1000 lines of code. split files before they cross this limit.
+- whenever creating a new file, choose its folder carefully and create a new folder when needed so responsibility boundaries stay clear.
+- each folder should only have 1 \`.md\` file, except the repository root which may contain multiple \`.md\` files. never create summary-only or visualization-only markdown files.
+- never mention legacy functionality or recent change history in developer guide markdown files. write only what is true for the current code.
+- keep system temp directories (for example \`%TEMP%/\`) ignored via \`.gitignore\`.
+- always ask whether a commit message is good before committing.
+- \`.md\` files are ignored when counting files in a folder. keep each folder at 10 code files or fewer where practical, and create a new folder before feature growth makes a folder hard to scan.
+- always verify code changes by running the relevant checks, linting and tests.
+- never worry about backward compatibility or legacy functionality. always assume everyone has up to date files.
+- never assume, if something is ambiguous then ask!
+- always repeat to me what i ask and ask clarifying questions to make sure we are on the same page before doing any changes.
+- make sure every function and functionality has a test and that all tests pass.
+- whith any change update the changlog.
+`;
 
 interface CompanionDialogState {
   workingDir: string;
   missingFiles: CompanionFileName[];
   selectedFiles: CompanionFileName[];
+  templateContent: string;
+  initialTemplateContent: string;
+  rememberTemplate: boolean;
+  isEditingTemplate: boolean;
 }
 
 export default function App() {
@@ -50,10 +71,12 @@ export default function App() {
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
   const [companionFileSelectionDefaults, setCompanionFileSelectionDefaults] =
     useState<CompanionFileName[]>(COMPANION_FILE_NAMES);
+  const [rememberedCompanionFileTemplate, setRememberedCompanionFileTemplate] = useState<string | null>(null);
   const [companionDialogState, setCompanionDialogState] = useState<CompanionDialogState | null>(null);
   const sidebarResizeRef = useRef({ startX: 0, startWidth: DEFAULT_SIDEBAR_WIDTH });
   const sidebarWidthRatioRef = useRef(getSidebarWidthRatio(DEFAULT_SIDEBAR_WIDTH));
   const companionFileSelectionDefaultsRef = useRef<CompanionFileName[]>(COMPANION_FILE_NAMES);
+  const rememberedCompanionFileTemplateRef = useRef<string | null>(null);
   const companionDialogResolverRef = useRef<((shouldContinue: boolean) => void) | null>(null);
 
   useEffect(() => {
@@ -63,6 +86,10 @@ export default function App() {
   useEffect(() => {
     companionFileSelectionDefaultsRef.current = companionFileSelectionDefaults;
   }, [companionFileSelectionDefaults]);
+
+  useEffect(() => {
+    rememberedCompanionFileTemplateRef.current = rememberedCompanionFileTemplate;
+  }, [rememberedCompanionFileTemplate]);
 
   function handleProviderChange(nextProvider: Provider) {
     const nextModel = MODELS[nextProvider][0].id;
@@ -93,6 +120,7 @@ export default function App() {
         if (Array.isArray(state.companionFileSelectionDefaults)) {
           setCompanionFileSelectionDefaults(state.companionFileSelectionDefaults);
         }
+        setRememberedCompanionFileTemplate(state.companionFileTemplate ?? null);
       } catch (error) {
         console.error("Failed to load persisted workspace state", error);
       } finally {
@@ -137,6 +165,7 @@ export default function App() {
         activeSessionId: useChatStore.getState().activeSessionId,
         sidebarWidthRatio,
         companionFileSelectionDefaults: companionFileSelectionDefaultsRef.current,
+        companionFileTemplate: rememberedCompanionFileTemplateRef.current,
       }).catch((error) => {
         console.error("Failed to save workspace state", error);
       });
@@ -178,11 +207,12 @@ export default function App() {
         activeSessionId: useChatStore.getState().activeSessionId,
         sidebarWidthRatio: sidebarWidthRatioRef.current,
         companionFileSelectionDefaults,
+        companionFileTemplate: rememberedCompanionFileTemplate,
       }).catch((error) => {
         console.error("Failed to save workspace state", error);
       });
     }, 150);
-  }, [sidebarWidth, companionFileSelectionDefaults]);
+  }, [sidebarWidth, companionFileSelectionDefaults, rememberedCompanionFileTemplate]);
 
   useEffect(() => {
     if (!isResizingSidebar) return;
@@ -266,6 +296,7 @@ export default function App() {
     }
 
     const rememberedSelections = companionFileSelectionDefaults.filter((fileName) => missingFiles.includes(fileName));
+    const templateContent = rememberedCompanionFileTemplate ?? SYSTEM_COMPANION_FILE_TEMPLATE;
 
     return new Promise<boolean>((resolve) => {
       companionDialogResolverRef.current = resolve;
@@ -273,6 +304,10 @@ export default function App() {
         workingDir,
         missingFiles,
         selectedFiles: rememberedSelections,
+        templateContent,
+        initialTemplateContent: templateContent,
+        rememberTemplate: false,
+        isEditingTemplate: false,
       });
     });
   }
@@ -338,17 +373,52 @@ export default function App() {
     });
   }
 
+  function handleOpenCompanionTemplateEditor() {
+    setCompanionDialogState((current) => (current ? { ...current, isEditingTemplate: true } : current));
+  }
+
+  function handleCompanionTemplateChange(templateContent: string) {
+    setCompanionDialogState((current) => (current ? { ...current, templateContent } : current));
+  }
+
+  function handleCompanionRememberTemplateChange(rememberTemplate: boolean) {
+    setCompanionDialogState((current) => (current ? { ...current, rememberTemplate } : current));
+  }
+
+  function handleRestoreSystemCompanionTemplate() {
+    setCompanionDialogState((current) =>
+      current
+        ? {
+            ...current,
+            templateContent: SYSTEM_COMPANION_FILE_TEMPLATE,
+          }
+        : current,
+    );
+  }
+
   async function handleCompanionDialogContinue() {
     if (!companionDialogState) return;
 
     const selectedFiles = [...companionDialogState.selectedFiles];
     setCompanionFileSelectionDefaults(selectedFiles);
+    const templateWasChanged = companionDialogState.templateContent !== companionDialogState.initialTemplateContent;
+
+    if (companionDialogState.rememberTemplate) {
+      setRememberedCompanionFileTemplate(
+        companionDialogState.templateContent === SYSTEM_COMPANION_FILE_TEMPLATE
+          ? null
+          : companionDialogState.templateContent,
+      );
+    } else if (templateWasChanged) {
+      setRememberedCompanionFileTemplate(null);
+    }
 
     try {
       if (selectedFiles.length > 0) {
         await invoke("create_missing_companion_files", {
           workingDir: companionDialogState.workingDir,
           fileNames: selectedFiles,
+          templateContent: companionDialogState.templateContent,
         });
       }
 
@@ -471,7 +541,14 @@ export default function App() {
         open={companionDialogState !== null}
         missingFiles={companionDialogState?.missingFiles ?? []}
         selectedFiles={companionDialogState?.selectedFiles ?? []}
+        templateContent={companionDialogState?.templateContent ?? SYSTEM_COMPANION_FILE_TEMPLATE}
+        rememberTemplate={companionDialogState?.rememberTemplate ?? false}
+        isEditingTemplate={companionDialogState?.isEditingTemplate ?? false}
         onToggle={handleCompanionSelectionToggle}
+        onOpenEditor={handleOpenCompanionTemplateEditor}
+        onTemplateChange={handleCompanionTemplateChange}
+        onRememberTemplateChange={handleCompanionRememberTemplateChange}
+        onRestoreSystemDefault={handleRestoreSystemCompanionTemplate}
         onContinue={handleCompanionDialogContinue}
         onCancel={handleCompanionDialogCancel}
       />

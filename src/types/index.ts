@@ -32,6 +32,7 @@ export interface PersistedWorkspaceState {
   activeSessionId: string | null;
   sidebarWidthRatio: number | null;
   companionFileSelectionDefaults: CompanionFileName[] | null;
+  companionFileTemplate: string | null;
 }
 
 export interface MissingCompanionFilesState {

@@ -90,13 +90,14 @@ describe("App", () => {
     });
     const invokeMock = vi.mocked(invoke);
     invokeMock.mockReset();
-    invokeMock.mockImplementation(async (command) => {
+    invokeMock.mockImplementation(async (command, _args) => {
       if (command === "load_workspace_state") {
         return {
           projects: [],
           activeSessionId: null,
           sidebarWidthRatio: null,
           companionFileSelectionDefaults: null,
+          companionFileTemplate: null,
         };
       }
       if (command === "check_missing_companion_files") {
@@ -184,13 +185,14 @@ describe("App", () => {
     const session = project.sessions[0];
     store.finalizeAssistant(session.id, "", "claude-session-1");
     const invokeMock = vi.mocked(invoke);
-    invokeMock.mockImplementation(async (command) => {
+    invokeMock.mockImplementation(async (command, _args) => {
       if (command === "load_workspace_state") {
         return {
           projects: [],
           activeSessionId: null,
           sidebarWidthRatio: null,
           companionFileSelectionDefaults: null,
+          companionFileTemplate: null,
         };
       }
       if (command === "load_project_state") {
@@ -251,6 +253,7 @@ describe("App", () => {
           activeSessionId: "session-2",
           sidebarWidthRatio: 0.412,
           companionFileSelectionDefaults: ["GEMINI.md"],
+          companionFileTemplate: null,
         };
       }
       if (command === "load_project_state") {
@@ -297,6 +300,7 @@ describe("App", () => {
         activeSessionId: useChatStore.getState().activeSessionId,
         sidebarWidthRatio: 0.75,
         companionFileSelectionDefaults: ["CLAUDE.md", "AGENTS.md", "GEMINI.md"],
+        companionFileTemplate: null,
       });
     });
   });
@@ -332,23 +336,22 @@ describe("App", () => {
 
   it("loads an existing persisted project instead of creating a fresh one", async () => {
     const invokeMock = vi.mocked(invoke);
-    invokeMock.mockImplementation(async (command, args) => {
+    invokeMock.mockImplementation(async (command) => {
       if (command === "load_workspace_state") {
         return {
           projects: [],
           activeSessionId: null,
           sidebarWidthRatio: null,
           companionFileSelectionDefaults: null,
+          companionFileTemplate: null,
         };
       }
       if (command === "check_missing_companion_files") {
-        expect(args).toEqual({ workingDir: "D:\\Projects\\Workspace" });
         return {
           missingFiles: [],
         };
       }
       if (command === "load_project_state") {
-        expect(args).toEqual({ workingDir: "D:\\Projects\\Workspace" });
         return {
           id: "project-1",
           title: "Workspace",
@@ -389,26 +392,22 @@ describe("App", () => {
 
   it("prompts for missing companion files and creates the selected defaults before opening the project", async () => {
     const invokeMock = vi.mocked(invoke);
-    invokeMock.mockImplementation(async (command, args) => {
+    invokeMock.mockImplementation(async (command) => {
       if (command === "load_workspace_state") {
         return {
           projects: [],
           activeSessionId: null,
           sidebarWidthRatio: null,
           companionFileSelectionDefaults: null,
+          companionFileTemplate: null,
         };
       }
       if (command === "check_missing_companion_files") {
-        expect(args).toEqual({ workingDir: "D:\\Projects\\Workspace" });
         return {
           missingFiles: ["CLAUDE.md", "AGENTS.md", "GEMINI.md"],
         };
       }
       if (command === "create_missing_companion_files") {
-        expect(args).toEqual({
-          workingDir: "D:\\Projects\\Workspace",
-          fileNames: ["CLAUDE.md", "AGENTS.md"],
-        });
         return undefined;
       }
       if (command === "load_project_state") {
@@ -434,6 +433,7 @@ describe("App", () => {
       expect(invokeMock).toHaveBeenCalledWith("create_missing_companion_files", {
         workingDir: "D:\\Projects\\Workspace",
         fileNames: ["CLAUDE.md", "AGENTS.md"],
+        templateContent: expect.any(String),
       });
     });
 
@@ -447,6 +447,7 @@ describe("App", () => {
         activeSessionId: useChatStore.getState().activeSessionId,
         sidebarWidthRatio: expect.any(Number),
         companionFileSelectionDefaults: ["CLAUDE.md", "AGENTS.md"],
+        companionFileTemplate: null,
       });
     });
   });
@@ -460,6 +461,7 @@ describe("App", () => {
           activeSessionId: null,
           sidebarWidthRatio: null,
           companionFileSelectionDefaults: null,
+          companionFileTemplate: null,
         };
       }
       if (command === "check_missing_companion_files") {
@@ -489,6 +491,7 @@ describe("App", () => {
         activeSessionId: useChatStore.getState().activeSessionId,
         sidebarWidthRatio: expect.any(Number),
         companionFileSelectionDefaults: ["GEMINI.md"],
+        companionFileTemplate: null,
       });
     });
 
@@ -509,6 +512,7 @@ describe("App", () => {
           activeSessionId: null,
           sidebarWidthRatio: null,
           companionFileSelectionDefaults: null,
+          companionFileTemplate: null,
         };
       }
       if (command === "check_missing_companion_files") {
@@ -535,6 +539,130 @@ describe("App", () => {
     expect(invokeMock).not.toHaveBeenCalledWith(
       "create_missing_companion_files",
       expect.anything()
+    );
+  });
+
+  it("opens the template editor, restores the system default, and creates files with temporary edited content", async () => {
+    const invokeMock = vi.mocked(invoke);
+    invokeMock.mockImplementation(async (command, args) => {
+      if (command === "load_workspace_state") {
+        return {
+          projects: [],
+          activeSessionId: null,
+          sidebarWidthRatio: null,
+          companionFileSelectionDefaults: null,
+          companionFileTemplate: null,
+        };
+      }
+      if (command === "check_missing_companion_files") {
+        return {
+          missingFiles: ["CLAUDE.md"],
+        };
+      }
+      if (command === "create_missing_companion_files") {
+        expect(args).toEqual({
+          workingDir: "D:\\Projects\\Workspace",
+          fileNames: ["CLAUDE.md"],
+          templateContent: "temporary template",
+        });
+        return undefined;
+      }
+      if (command === "load_project_state") {
+        return null;
+      }
+      return undefined;
+    });
+    openMock.mockResolvedValue("D:\\Projects\\Workspace");
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "New project" }));
+    expect(await screen.findByText("Missing repo instruction files")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit default content" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Companion file template" }), {
+      target: { value: "temporary template" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Restore system default" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Companion file template" }), {
+      target: { value: "temporary template" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("create_missing_companion_files", {
+        workingDir: "D:\\Projects\\Workspace",
+        fileNames: ["CLAUDE.md"],
+        templateContent: "temporary template",
+      });
+    });
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("save_workspace_state", {
+        projects: useChatStore.getState().projects,
+        activeSessionId: useChatStore.getState().activeSessionId,
+        sidebarWidthRatio: expect.any(Number),
+        companionFileSelectionDefaults: ["CLAUDE.md"],
+        companionFileTemplate: null,
+      });
+    });
+  });
+
+  it("remembers a custom template for future new projects when requested", async () => {
+    const invokeMock = vi.mocked(invoke);
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "load_workspace_state") {
+        return {
+          projects: [],
+          activeSessionId: null,
+          sidebarWidthRatio: null,
+          companionFileSelectionDefaults: null,
+          companionFileTemplate: null,
+        };
+      }
+      if (command === "check_missing_companion_files") {
+        return {
+          missingFiles: ["CLAUDE.md"],
+        };
+      }
+      if (command === "create_missing_companion_files") {
+        return undefined;
+      }
+      if (command === "load_project_state") {
+        return null;
+      }
+      return undefined;
+    });
+    openMock.mockResolvedValue("D:\\Projects\\Workspace");
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "New project" }));
+    expect(await screen.findByText("Missing repo instruction files")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit default content" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Companion file template" }), {
+      target: { value: "remembered template" },
+    });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Remember edited template as default" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("save_workspace_state", {
+        projects: useChatStore.getState().projects,
+        activeSessionId: useChatStore.getState().activeSessionId,
+        sidebarWidthRatio: expect.any(Number),
+        companionFileSelectionDefaults: ["CLAUDE.md"],
+        companionFileTemplate: "remembered template",
+      });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "New project" }));
+    expect(await screen.findByText("Missing repo instruction files")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Edit default content" }));
+
+    expect((screen.getByRole("textbox", { name: "Companion file template" }) as HTMLTextAreaElement).value).toBe(
+      "remembered template"
     );
   });
 });

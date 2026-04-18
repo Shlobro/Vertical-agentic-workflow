@@ -9,23 +9,6 @@ const CHATS_DIR: &str = "chats";
 const PROJECT_FILE_NAME: &str = "project.json";
 const REGISTRY_FILE_NAME: &str = "registry.json";
 const COMPANION_FILE_NAMES: [&str; 3] = ["CLAUDE.md", "AGENTS.md", "GEMINI.md"];
-const DEFAULT_COMPANION_FILE_CONTENT: &str = r#"- always start by reading `vertical_developer_guide.md` and then read any other relevant `*_developer_guide.md` files for the folders you will modify.
-- always read the `.md` file in every folder you work in. if there is no `.md` file in that folder, create one named `<folder>_developer_guide.md` and write it for developers who are new to the codebase. these files should never be over 500 lines long.
-- when changing any file, update the `.md` file in that folder and in ancestor folders when the developer-facing architecture or behavior changed. these `.md` files should never be longer than 500 lines long.
-- no code file generated or edited should exceed 1000 lines of code. split files before they cross this limit.
-- whenever creating a new file, choose its folder carefully and create a new folder when needed so responsibility boundaries stay clear.
-- each folder should only have 1 `.md` file, except the repository root which may contain multiple `.md` files. never create summary-only or visualization-only markdown files.
-- never mention legacy functionality or recent change history in developer guide markdown files. write only what is true for the current code.
-- keep system temp directories (for example `%TEMP%/`) ignored via `.gitignore`.
-- always ask whether a commit message is good before committing.
-- `.md` files are ignored when counting files in a folder. keep each folder at 10 code files or fewer where practical, and create a new folder before feature growth makes a folder hard to scan.
-- always verify code changes by running the relevant checks, linting and tests.
-- never worry about backward compatibility or legacy functionality. always assume everyone has up to date files.
-- never assume, if something is ambiguous then ask!
-- always repeat to me what i ask and ask clarifying questions to make sure we are on the same page before doing any changes.
-- make sure every function and functionality has a test and that all tests pass.
-- whith any change update the changlog.
-"#;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -34,6 +17,7 @@ pub struct PersistedWorkspaceState {
     pub active_session_id: Option<String>,
     pub sidebar_width_ratio: Option<f64>,
     pub companion_file_selection_defaults: Option<Vec<String>>,
+    pub companion_file_template: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
@@ -82,6 +66,7 @@ struct RegistryFile {
     active_project_path: Option<String>,
     sidebar_width_ratio: Option<f64>,
     companion_file_selection_defaults: Option<Vec<String>>,
+    companion_file_template: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -118,6 +103,7 @@ pub fn load_workspace_state() -> Result<PersistedWorkspaceState, String> {
         &state.active_session_id,
         state.sidebar_width_ratio,
         state.companion_file_selection_defaults.clone(),
+        state.companion_file_template.clone(),
     )?;
     Ok(state)
 }
@@ -135,7 +121,11 @@ pub fn check_missing_companion_files(working_dir: String) -> Result<MissingCompa
 }
 
 #[tauri::command]
-pub fn create_missing_companion_files(working_dir: String, file_names: Vec<String>) -> Result<(), String> {
+pub fn create_missing_companion_files(
+    working_dir: String,
+    file_names: Vec<String>,
+    template_content: String,
+) -> Result<(), String> {
     let project_root = Path::new(&working_dir);
 
     for file_name in normalize_companion_file_names(file_names)? {
@@ -144,7 +134,7 @@ pub fn create_missing_companion_files(working_dir: String, file_names: Vec<Strin
             continue;
         }
 
-        fs::write(&file_path, DEFAULT_COMPANION_FILE_CONTENT)
+        fs::write(&file_path, &template_content)
             .map_err(|error| format!("Failed to write '{}': {error}", file_path.display()))?;
     }
 
@@ -157,6 +147,7 @@ pub fn save_workspace_state(
     active_session_id: Option<String>,
     sidebar_width_ratio: Option<f64>,
     companion_file_selection_defaults: Option<Vec<String>>,
+    companion_file_template: Option<String>,
 ) -> Result<(), String> {
     let root = executable_storage_root()?;
     save_workspace_state_to_root(
@@ -165,6 +156,7 @@ pub fn save_workspace_state(
         active_session_id.as_deref(),
         sidebar_width_ratio,
         companion_file_selection_defaults,
+        companion_file_template,
     )
 }
 
@@ -219,6 +211,7 @@ fn load_workspace_state_from_root(root: &Path) -> Result<PersistedWorkspaceState
         active_session_id,
         sidebar_width_ratio: registry.sidebar_width_ratio,
         companion_file_selection_defaults: registry.companion_file_selection_defaults,
+        companion_file_template: registry.companion_file_template,
     })
 }
 
@@ -228,6 +221,7 @@ fn save_workspace_state_to_root(
     active_session_id: Option<&str>,
     sidebar_width_ratio: Option<f64>,
     companion_file_selection_defaults: Option<Vec<String>>,
+    companion_file_template: Option<String>,
 ) -> Result<(), String> {
     for project in projects {
         save_project(project, active_session_id)?;
@@ -239,6 +233,7 @@ fn save_workspace_state_to_root(
         &active_session_id.map(str::to_string),
         sidebar_width_ratio,
         companion_file_selection_defaults,
+        companion_file_template,
     )
 }
 
@@ -248,6 +243,7 @@ fn save_registry_file(
     active_session_id: &Option<String>,
     sidebar_width_ratio: Option<f64>,
     companion_file_selection_defaults: Option<Vec<String>>,
+    companion_file_template: Option<String>,
 ) -> Result<(), String> {
     let registry_dir = registry_dir(root);
     fs::create_dir_all(&registry_dir)
@@ -263,6 +259,7 @@ fn save_registry_file(
         active_project_path,
         sidebar_width_ratio,
         companion_file_selection_defaults,
+        companion_file_template,
     };
 
     write_json_file(&registry_dir.join(REGISTRY_FILE_NAME), &registry)
@@ -393,6 +390,7 @@ fn load_registry_file(root: &Path) -> Result<RegistryFile, String> {
             active_project_path: None,
             sidebar_width_ratio: None,
             companion_file_selection_defaults: None,
+            companion_file_template: None,
         });
     }
 
@@ -545,6 +543,7 @@ mod tests {
             Some("session-2"),
             Some(0.512),
             Some(vec!["CLAUDE.md".to_string(), "GEMINI.md".to_string()]),
+            Some("custom template".to_string()),
         )
         .unwrap();
         let loaded = load_workspace_state_from_root(&root).unwrap();
@@ -558,6 +557,7 @@ mod tests {
             loaded.companion_file_selection_defaults,
             Some(vec!["CLAUDE.md".to_string(), "GEMINI.md".to_string()])
         );
+        assert_eq!(loaded.companion_file_template.as_deref(), Some("custom template"));
     }
 
     #[test]
@@ -567,9 +567,9 @@ mod tests {
         fs::create_dir_all(&project_root).unwrap();
         let mut project = sample_project(&project_root);
 
-        save_workspace_state_to_root(&root, &[project.clone()], Some("session-1"), Some(0.32), None).unwrap();
+        save_workspace_state_to_root(&root, &[project.clone()], Some("session-1"), Some(0.32), None, None).unwrap();
         project.sessions.pop();
-        save_workspace_state_to_root(&root, &[project], Some("session-1"), Some(0.32), None).unwrap();
+        save_workspace_state_to_root(&root, &[project], Some("session-1"), Some(0.32), None, None).unwrap();
 
         let stale_chat_path = project_vertical_dir(&project_root).join("chats").join("session-2.json");
         assert!(!stale_chat_path.exists());
@@ -582,7 +582,7 @@ mod tests {
         fs::create_dir_all(&project_root).unwrap();
         let project = sample_project(&project_root);
 
-        save_workspace_state_to_root(&root, &[project], Some("session-1"), Some(0.32), None).unwrap();
+        save_workspace_state_to_root(&root, &[project], Some("session-1"), Some(0.32), None, None).unwrap();
         delete_project_state_at_path(&project_root).unwrap();
 
         assert!(!project_vertical_dir(&project_root).exists());
@@ -607,13 +607,11 @@ mod tests {
         create_missing_companion_files(
             root.to_string_lossy().to_string(),
             vec!["CLAUDE.md".to_string(), "AGENTS.md".to_string()],
+            "custom body".to_string(),
         )
         .unwrap();
 
-        assert_eq!(
-            fs::read_to_string(root.join("CLAUDE.md")).unwrap(),
-            super::DEFAULT_COMPANION_FILE_CONTENT
-        );
+        assert_eq!(fs::read_to_string(root.join("CLAUDE.md")).unwrap(), "custom body");
         assert_eq!(fs::read_to_string(existing_path).unwrap(), "keep me");
         assert!(!root.join("GEMINI.md").exists());
     }

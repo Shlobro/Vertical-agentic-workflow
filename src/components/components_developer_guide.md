@@ -6,13 +6,13 @@
 ## Current Components
 - `Sidebar.tsx`: Project creation, project collapse state, nested chat navigation, inline rename editing for both projects and chats, per-item action menus, per-chat provider icons in the session list, and the right-edge resize handle. Width state lives in `App.tsx`; `Sidebar` receives the current width plus the drag-start callback and renders a border-straddling resize target so hover, cursor, and guide line align with the visible shell edge.
 - `ConfirmDialog.tsx`: Themed in-app confirmation dialog used for destructive chat actions.
-- `MissingCompanionFilesDialog.tsx`: Themed in-app checklist dialog shown after choosing a project directory when the repo root is missing one or more of `CLAUDE.md`, `AGENTS.md`, or `GEMINI.md`.
+- `MissingCompanionFilesDialog.tsx`: Themed in-app checklist dialog shown after choosing a project directory when the repo root is missing one or more of `CLAUDE.md`, `AGENTS.md`, or `GEMINI.md`. It also owns the shared-template editor, the restore-system-default action, and the remember-template checkbox.
 - `ChatView.tsx`: Transcript area plus no-session and no-message empty states, including provider-specific empty-state copy.
 - `MessageBubble.tsx`: Animated user and assistant message card, including typing placeholder behavior.
 - `InputBar.tsx`: Textarea on top, bottom-right toolbar row with provider/model selector and send/cancel controls, and no extra instructional footer copy. It only renders when a chat is selected.
 - `InputBar.test.tsx`: Coverage for keyboard submission, accessible labelling, cancel-state controls, and the absence of a working-directory button.
 - `ConfirmDialog.test.tsx`: Coverage for themed destructive-confirmation rendering and button wiring.
-- `MissingCompanionFilesDialog.test.tsx`: Coverage for the companion-file checklist rendering, checkbox wiring, and action buttons.
+- `MissingCompanionFilesDialog.test.tsx`: Coverage for the companion-file checklist rendering, checkbox wiring, shared-template editor actions, and action buttons.
 - `Sidebar.test.tsx`: Coverage for project collapse, project rename, nested chat creation, chat action wiring, per-session provider icon rendering, and the resize handle contract.
 
 ## Guardrails

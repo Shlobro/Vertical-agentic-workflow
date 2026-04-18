@@ -5,7 +5,14 @@ interface Props {
   open: boolean;
   missingFiles: CompanionFileName[];
   selectedFiles: CompanionFileName[];
+  templateContent: string;
+  rememberTemplate: boolean;
+  isEditingTemplate: boolean;
   onToggle: (fileName: CompanionFileName) => void;
+  onOpenEditor: () => void;
+  onTemplateChange: (value: string) => void;
+  onRememberTemplateChange: (value: boolean) => void;
+  onRestoreSystemDefault: () => void;
   onContinue: () => void;
   onCancel: () => void;
 }
@@ -14,7 +21,14 @@ export default function MissingCompanionFilesDialog({
   open,
   missingFiles,
   selectedFiles,
+  templateContent,
+  rememberTemplate,
+  isEditingTemplate,
   onToggle,
+  onOpenEditor,
+  onTemplateChange,
+  onRememberTemplateChange,
+  onRestoreSystemDefault,
   onContinue,
   onCancel,
 }: Props) {
@@ -56,6 +70,47 @@ export default function MissingCompanionFilesDialog({
             );
           })}
         </div>
+
+        {isEditingTemplate ? (
+          <div className="mt-5 rounded-2xl border border-border bg-[#10101a]/80 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-text-primary">Shared template content</h3>
+              <button
+                type="button"
+                onClick={onRestoreSystemDefault}
+                className="rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-surface-hover"
+              >
+                Restore system default
+              </button>
+            </div>
+            <textarea
+              value={templateContent}
+              onChange={(event) => onTemplateChange(event.target.value)}
+              aria-label="Companion file template"
+              className="mt-3 h-64 w-full rounded-xl border border-border bg-surface px-3 py-3 font-mono text-sm text-text-primary outline-none transition-colors focus:border-blue-400"
+            />
+            <label className="mt-3 flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-surface/70 px-3 py-3 text-sm text-text-primary transition-colors hover:bg-surface-hover">
+              <input
+                type="checkbox"
+                checked={rememberTemplate}
+                onChange={(event) => onRememberTemplateChange(event.target.checked)}
+                aria-label="Remember edited template as default"
+                className="h-4 w-4 rounded border-border bg-surface"
+              />
+              <span>Remember edited template as default for future new projects</span>
+            </label>
+          </div>
+        ) : (
+          <div className="mt-5">
+            <button
+              type="button"
+              onClick={onOpenEditor}
+              className="rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-surface-hover"
+            >
+              Edit default content
+            </button>
+          </div>
+        )}
 
         <div className="mt-5 flex justify-end gap-2">
           <button
