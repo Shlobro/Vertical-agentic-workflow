@@ -8,6 +8,7 @@ import { useChatStore } from "./store/chatStore";
 import { MessageDoneEvent, MessageErrorEvent, Provider, StreamChunkEvent, MODELS } from "./types";
 import Sidebar from "./components/Sidebar";
 import ChatView from "./components/ChatView";
+import ConfirmDialog from "./components/ConfirmDialog";
 import InputBar from "./components/InputBar";
 
 export default function App() {
@@ -16,6 +17,7 @@ export default function App() {
   const unlistenRef = useRef<UnlistenFn[]>([]);
   const [provider, setProvider] = useState<Provider>("claude");
   const [model, setModel] = useState(MODELS.claude[0].id);
+  const [pendingDeleteSessionId, setPendingDeleteSessionId] = useState<string | null>(null);
 
   function handleProviderChange(p: Provider) {
     setProvider(p);
@@ -47,6 +49,23 @@ export default function App() {
 
   function handleNewChat() {
     store.addSession(provider, model);
+  }
+
+  function handleDeleteChat(sessionId: string) {
+    const session = store.sessions.find((item) => item.id === sessionId);
+    if (!session) return;
+
+    setPendingDeleteSessionId(sessionId);
+  }
+
+  function handleConfirmDelete() {
+    if (!pendingDeleteSessionId) return;
+    store.deleteSession(pendingDeleteSessionId);
+    setPendingDeleteSessionId(null);
+  }
+
+  function handleCancelDelete() {
+    setPendingDeleteSessionId(null);
   }
 
   async function resolveWorkingDir(sess: ReturnType<typeof store.activeSession> & object): Promise<string> {
@@ -126,6 +145,10 @@ export default function App() {
     }
   }
 
+  const pendingDeleteSession = pendingDeleteSessionId
+    ? store.sessions.find((session) => session.id === pendingDeleteSessionId) ?? null
+    : null;
+
   return (
     <div className="flex h-screen bg-bg-primary text-text-primary overflow-hidden">
       <Sidebar
@@ -133,6 +156,8 @@ export default function App() {
         activeSessionId={store.activeSessionId}
         onNewChat={handleNewChat}
         onSelectSession={store.setActiveSession}
+        onRenameSession={store.renameSession}
+        onDeleteSession={handleDeleteChat}
       />
       <div className="flex flex-col flex-1 min-w-0">
         <ChatView session={activeSession} />
@@ -148,6 +173,19 @@ export default function App() {
           onPickWorkingDir={handlePickWorkingDir}
         />
       </div>
+      <ConfirmDialog
+        open={pendingDeleteSession !== null}
+        title="Delete chat?"
+        description={
+          pendingDeleteSession
+            ? `This will permanently remove "${pendingDeleteSession.title}" from the sidebar.`
+            : ""
+        }
+        confirmLabel="Delete chat"
+        cancelLabel="Keep chat"
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+      />
     </div>
   );
 }

@@ -24,6 +24,7 @@ Vertical is a desktop chat client built with Tauri, React, TypeScript, and Rust.
 
 ## Current Frontend Shape
 - The layout is a fixed two-column shell: provider and session controls on the left, conversation on the right.
+- Each sidebar chat row exposes an actions menu for inline renaming and a themed in-app delete confirmation.
 - `ChatView` handles three empty states: no active session, active session with no messages, and active session with transcript.
 - `MessageBubble` animates message entry and uses a typing indicator while the assistant placeholder is still empty.
 - `InputBar` handles enter-to-send, shift-enter newline, textarea auto-growth, labelled icon controls, and cancellation of the active provider request.
@@ -41,9 +42,10 @@ Vertical is a desktop chat client built with Tauri, React, TypeScript, and Rust.
 ## Change Map
 - Application shell and event wiring: `src/App.tsx`
 - Session list and provider/model selection: `src/components/Sidebar.tsx`
+- Session rename/delete state transitions: `src/store/chatStore.ts`
 - Conversation rendering and scroll behavior: `src/components/ChatView.tsx`, `src/components/MessageBubble.tsx`
 - Prompt input and send/cancel controls: `src/components/InputBar.tsx`
-- Session and transcript state transitions: `src/store/chatStore.ts`
+- Session, transcript, and sidebar action state transitions: `src/store/chatStore.ts`
 - Shared TypeScript contracts, event payloads, and model catalog: `src/types/index.ts`
 - Tauri bootstrap and command registration: `src-tauri/src/lib.rs`, `src-tauri/src/main.rs`
 - CLI process spawning and stream event emission: `src-tauri/src/commands/chat.rs`

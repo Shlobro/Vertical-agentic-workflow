@@ -15,10 +15,11 @@
 ## Frontend Data Flow
 1. `App.tsx` reads the Zustand store and derives the active session through `activeSession()`.
 2. UI events call store actions directly for local state changes.
-3. Choosing a working directory from the `InputBar` creates a session first if the shell is still in the no-chat state, so the picker can configure where the first agent run will start.
-4. Sending a prompt writes optimistic user and assistant messages before calling Tauri.
-5. Tauri events flow back into the same store to mutate the in-progress assistant message and session metadata.
-6. `message-error` events may include partial assistant text. The frontend should preserve that text and append the failure reason instead of replacing it with a blank error state.
+3. `Sidebar.tsx` owns per-chat presentation details such as the inline rename field, while `App.tsx` owns destructive confirmation state and renders the themed confirmation dialog before calling store delete actions.
+4. Choosing a working directory from the `InputBar` creates a session first if the shell is still in the no-chat state, so the picker can configure where the first agent run will start.
+5. Sending a prompt writes optimistic user and assistant messages before calling Tauri.
+6. Tauri events flow back into the same store to mutate the in-progress assistant message and session metadata.
+7. `message-error` events may include partial assistant text. The frontend should preserve that text and append the failure reason instead of replacing it with a blank error state.
 
 ## Guardrails
 - Keep `App.tsx` as orchestration glue, not a dumping ground for UI logic.

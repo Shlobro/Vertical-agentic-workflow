@@ -8,6 +8,8 @@ interface ChatStore {
   activeSessionId: string | null;
   addSession: (provider: Provider, model: string) => ChatSession;
   setActiveSession: (id: string) => void;
+  renameSession: (id: string, title: string) => void;
+  deleteSession: (id: string) => void;
   activeSession: () => ChatSession | null;
   addMessage: (sessionId: string, msg: Message) => void;
   updateLastAssistant: (sessionId: string, text: string) => void;
@@ -38,6 +40,37 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   setActiveSession(id) {
     set({ activeSessionId: id });
+  },
+
+  renameSession(id, title) {
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) return;
+
+    set((s) => ({
+      sessions: s.sessions.map((sess) =>
+        sess.id === id ? { ...sess, title: trimmedTitle } : sess
+      ),
+    }));
+  },
+
+  deleteSession(id) {
+    set((s) => {
+      const index = s.sessions.findIndex((sess) => sess.id === id);
+      if (index === -1) return s;
+
+      const sessions = s.sessions.filter((sess) => sess.id !== id);
+      if (s.activeSessionId !== id) {
+        return { sessions };
+      }
+
+      const nextActiveSession =
+        sessions[index] ?? sessions[index - 1] ?? null;
+
+      return {
+        sessions,
+        activeSessionId: nextActiveSession?.id ?? null,
+      };
+    });
   },
 
   activeSession() {

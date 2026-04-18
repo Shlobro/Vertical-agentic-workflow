@@ -57,4 +57,27 @@ describe("chatStore", () => {
 
     expect(session.model).toBe("gpt-5.3-codex:xhigh");
   });
+
+  it("renames a session with trimmed text", () => {
+    const store = useChatStore.getState();
+    const session = store.addSession("claude", "claude-sonnet-4-6");
+
+    store.renameSession(session.id, "  Project planning  ");
+
+    expect(useChatStore.getState().sessions[0].title).toBe("Project planning");
+  });
+
+  it("deletes the active session and selects the next available one", () => {
+    const store = useChatStore.getState();
+    const first = store.addSession("claude", "claude-sonnet-4-6");
+    const second = store.addSession("codex", "gpt-5.4");
+    const third = store.addSession("claude", "claude-opus-4-7");
+
+    store.setActiveSession(second.id);
+    store.deleteSession(second.id);
+
+    const state = useChatStore.getState();
+    expect(state.sessions.map((session) => session.id)).toEqual([first.id, third.id]);
+    expect(state.activeSessionId).toBe(third.id);
+  });
 });

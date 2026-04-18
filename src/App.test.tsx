@@ -28,7 +28,21 @@ vi.mock("@tauri-apps/plugin-fs", () => ({
 }));
 
 vi.mock("./components/Sidebar", () => ({
-  default: () => <div data-testid="sidebar" />,
+  default: ({
+    sessions,
+    onDeleteSession,
+  }: {
+    sessions: Array<{ id: string; title: string }>;
+    onDeleteSession: (id: string) => void | Promise<void>;
+  }) => (
+    <div data-testid="sidebar">
+      {sessions.map((session) => (
+        <button key={session.id} onClick={() => onDeleteSession(session.id)}>
+          Delete {session.title}
+        </button>
+      ))}
+    </div>
+  ),
 }));
 
 vi.mock("./components/ChatView", () => ({
@@ -77,5 +91,33 @@ describe("App", () => {
     });
 
     expect(screen.getByTestId("working-dir").textContent).toBe("D:\\Projects\\Workspace");
+  });
+
+  it("confirms before deleting a chat", async () => {
+    const store = useChatStore.getState();
+    const session = store.addSession("claude", "claude-sonnet-4-6");
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: `Delete ${session.title}` }));
+    expect(screen.getByText(`This will permanently remove "${session.title}" from the sidebar.`)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Delete chat" }));
+
+    await waitFor(() => {
+      expect(useChatStore.getState().sessions).toHaveLength(0);
+    });
+  });
+
+  it("keeps the chat when delete confirmation is cancelled", async () => {
+    const store = useChatStore.getState();
+    const session = store.addSession("claude", "claude-sonnet-4-6");
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: `Delete ${session.title}` }));
+    fireEvent.click(screen.getByRole("button", { name: "Keep chat" }));
+
+    expect(useChatStore.getState().sessions).toHaveLength(1);
+    expect(useChatStore.getState().sessions[0].id).toBe(session.id);
   });
 });
