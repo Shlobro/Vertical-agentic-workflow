@@ -6,6 +6,8 @@
   "permissions": [
     "core:default",
     "core:event:default",
+    "dialog:allow-open",
+    "fs:allow-mkdir",
     "opener:default"
   ]
 }

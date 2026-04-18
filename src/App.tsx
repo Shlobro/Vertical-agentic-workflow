@@ -114,12 +114,15 @@ export default function App() {
   }
 
   async function handlePickWorkingDir() {
-    const sess = store.activeSession();
-    if (!sess) return;
+    const sess = store.activeSession() ?? store.addSession(provider, model);
 
-    const selected = await open({ directory: true, multiple: false });
-    if (typeof selected === "string" && selected) {
-      store.setWorkingDir(sess.id, selected);
+    try {
+      const selected = await open({ directory: true, multiple: false });
+      if (typeof selected === "string" && selected) {
+        store.setWorkingDir(sess.id, selected);
+      }
+    } catch (error) {
+      console.error("Failed to open working directory picker", error);
     }
   }
 

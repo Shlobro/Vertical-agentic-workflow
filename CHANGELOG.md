@@ -7,3 +7,7 @@
 - If no working directory is selected when sending, a warning dialog appears and the agent runs in `<appLocalDataDir>/default` (created automatically).
 - Selected working directory is passed as `current_dir` to the spawned CLI process.
 - InputBar layout restructured: textarea fills the top of the input bubble; provider/model selector, folder picker, and send/cancel button are pinned to the bottom-right row.
+
+### Fixed
+- Clicking the folder icon in the empty-chat state now creates a session first, so users can choose the agent working directory before sending the first message.
+- Tauri capabilities now explicitly allow the directory-open dialog and default-workspace creation used by working-directory selection.
