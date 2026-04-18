@@ -73,6 +73,23 @@ describe("InputBar", () => {
     expect(screen.getByRole("button", { name: "Select model" })).toBeTruthy();
   });
 
+  it("sizes compact composer controls from the shared input zoom variables", () => {
+    renderBar();
+
+    const providerButton = screen.getByRole("button", { name: "Select provider" }) as HTMLButtonElement;
+    const modelButton = screen.getByRole("button", { name: "Select model" }) as HTMLButtonElement;
+    const sendButton = screen.getByRole("button", { name: "Send message" }) as HTMLButtonElement;
+
+    expect(providerButton.style.minHeight).toBe("var(--input-control-height)");
+    expect(providerButton.style.width).toBe("var(--input-provider-control-width)");
+    expect(providerButton.style.paddingInline).toBe("var(--input-control-padding-x)");
+    expect(providerButton.style.paddingBlock).toBe("var(--input-control-padding-y)");
+    expect(modelButton.style.minHeight).toBe("var(--input-control-height)");
+    expect(modelButton.style.width).toBe("var(--input-model-control-width)");
+    expect(sendButton.style.width).toBe("var(--input-action-size)");
+    expect(sendButton.style.height).toBe("var(--input-action-size)");
+  });
+
   it("opens provider dropdown and calls onProviderChange when a provider is clicked", () => {
     const onProviderChange = vi.fn();
     renderBar({ onProviderChange });

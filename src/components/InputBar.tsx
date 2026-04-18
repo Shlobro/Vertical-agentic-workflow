@@ -228,6 +228,29 @@ export default function InputBar({
     mentionOpen
       ? `${mentionListId}-option-${highlightedMentionIndex}`
       : undefined;
+  const compactControlStyle = {
+    minHeight: "var(--input-control-height)",
+    width: "var(--input-provider-control-width)",
+    paddingInline: "var(--input-control-padding-x)",
+    paddingBlock: "var(--input-control-padding-y)",
+    gap: "var(--input-control-gap)",
+  } as const;
+  const modelControlStyle = {
+    ...compactControlStyle,
+    width: "var(--input-model-control-width)",
+  } as const;
+  const compactIconStyle = {
+    width: "var(--input-control-icon-size)",
+    height: "var(--input-control-icon-size)",
+  } as const;
+  const compactChevronStyle = {
+    width: "var(--input-control-chevron-size)",
+    height: "var(--input-control-chevron-size)",
+  } as const;
+  const actionButtonStyle = {
+    width: "var(--input-action-size)",
+    height: "var(--input-action-size)",
+  } as const;
 
   return (
     <div ref={wrapperRef} className="max-h-[50vh] px-4 py-4 border-t border-border bg-bg-primary">
@@ -295,21 +318,29 @@ export default function InputBar({
             <button
               onClick={() => { setProviderOpen((v) => !v); setModelOpen(false); }}
               aria-label="Select provider"
-              className="input-font-small group flex w-24 items-center gap-1.5 rounded-lg px-2 py-1.5 text-text-muted transition-all hover:bg-surface-hover hover:text-text-primary"
+              className="input-font-small group flex items-center rounded-lg text-text-muted transition-all hover:bg-surface-hover hover:text-text-primary"
+              style={compactControlStyle}
             >
               <img
                 src={PROVIDER_ICONS[provider]}
                 alt={provider}
-                className="h-4 w-4 flex-shrink-0 object-contain opacity-80 transition-opacity group-hover:opacity-100"
+                className="flex-shrink-0 object-contain opacity-80 transition-opacity group-hover:opacity-100"
+                style={compactIconStyle}
               />
               <span className="flex-1 truncate">
                 {activeProvider?.id === "claude" ? "Claude" : activeProvider?.id === "codex" ? "OpenAI" : "Gemini"}
               </span>
-              <ChevronDown size={11} className={`transition-transform duration-150 ${providerOpen ? "rotate-180" : ""}`} />
+              <ChevronDown
+                className={`flex-shrink-0 transition-transform duration-150 ${providerOpen ? "rotate-180" : ""}`}
+                style={compactChevronStyle}
+              />
             </button>
 
             {providerOpen && (
-              <div className="absolute bottom-full right-0 z-50 mb-2 w-36 overflow-hidden rounded-xl border border-border bg-surface shadow-2xl py-1">
+              <div
+                className="absolute bottom-full right-0 z-50 mb-2 overflow-hidden rounded-xl border border-border bg-surface shadow-2xl py-1"
+                style={{ width: "var(--input-provider-menu-width)" }}
+              >
                 {PROVIDERS.map((item) => (
                   <button
                     key={item.id}
@@ -334,16 +365,23 @@ export default function InputBar({
             <button
               onClick={() => { setModelOpen((v) => !v); setProviderOpen(false); }}
               aria-label="Select model"
-              className="input-font-small group flex w-36 items-center gap-1.5 rounded-lg px-2 py-1.5 text-text-muted transition-all hover:bg-surface-hover hover:text-text-primary"
+              className="input-font-small group flex items-center rounded-lg text-text-muted transition-all hover:bg-surface-hover hover:text-text-primary"
+              style={modelControlStyle}
             >
               <span className="flex-1 truncate text-left">
                 {activeModel?.label.replace(/^(Claude|Gemini)\s*/i, "") || activeModel?.label || model}
               </span>
-              <ChevronDown size={11} className={`transition-transform duration-150 ${modelOpen ? "rotate-180" : ""}`} />
+              <ChevronDown
+                className={`flex-shrink-0 transition-transform duration-150 ${modelOpen ? "rotate-180" : ""}`}
+                style={compactChevronStyle}
+              />
             </button>
 
             {modelOpen && (
-              <div className="absolute bottom-full right-0 z-50 mb-2 w-52 overflow-hidden rounded-xl border border-border bg-surface shadow-2xl">
+              <div
+                className="absolute bottom-full right-0 z-50 mb-2 overflow-hidden rounded-xl border border-border bg-surface shadow-2xl"
+                style={{ width: "var(--input-model-menu-width)" }}
+              >
                 <div className="max-h-52 overflow-y-auto py-1">
                   {MODELS[provider].map((item) => (
                     <button
@@ -369,8 +407,9 @@ export default function InputBar({
               onClick={onCancel}
               aria-label="Cancel response"
               className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/20 text-red-400 transition-colors hover:bg-red-500/30"
+              style={actionButtonStyle}
             >
-              <Square size={14} />
+              <Square style={compactIconStyle} />
             </button>
           ) : (
             <button
@@ -378,8 +417,9 @@ export default function InputBar({
               disabled={!hasText}
               aria-label="Send message"
               className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
+              style={actionButtonStyle}
             >
-              <Send size={14} />
+              <Send style={compactIconStyle} />
             </button>
           )}
         </div>

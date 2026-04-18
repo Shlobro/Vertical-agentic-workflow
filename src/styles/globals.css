@@ -31,6 +31,17 @@ body {
   --chat-font-size-title: 1.875rem;
   --input-font-size: 1.0625rem;
   --input-font-size-small: 0.7969rem;
+  --input-control-height: 2.0719rem;
+  --input-control-padding-x: 0.4994rem;
+  --input-control-padding-y: 0.3719rem;
+  --input-control-gap: 0.3719rem;
+  --input-control-icon-size: 0.9988rem;
+  --input-control-chevron-size: 0.7013rem;
+  --input-action-size: 2.0719rem;
+  --input-provider-control-width: 6.4813rem;
+  --input-model-control-width: 9.775rem;
+  --input-provider-menu-width: 8.2875rem;
+  --input-model-menu-width: 12.9625rem;
   --sidebar-font-size: 0.875rem;
   --sidebar-font-size-small: 0.75rem;
 }

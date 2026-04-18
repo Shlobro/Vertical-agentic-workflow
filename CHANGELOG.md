@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- Fixed composer provider/model dropdown triggers so `Ctrl + mouse wheel` zoom scales their width, height, padding, and icons with the text while keeping the model trigger wider than the provider trigger and labels on one line.
+- Increased the closed provider dropdown width slightly so `OpenAI` fits comfortably across composer zoom levels.
 - Increased the composer growth limit so the full bottom input panel can expand up to 50% of the window height before the textarea starts scrolling.
 - Added `@` file mentions in the composer. Typing `@` now shows relative file-path suggestions from the active project, `ArrowUp` and `ArrowDown` move the highlighted match, and `Tab` inserts the selected path into the prompt.
 - Updated the composer file-suggestion popup to flip above the input when there is not enough viewport space below it, keeping `@` completions visible near the bottom edge of the window.

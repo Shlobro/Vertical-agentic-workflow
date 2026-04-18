@@ -4,7 +4,7 @@
 `src/styles/` defines global CSS and theme tokens for the frontend.
 
 ## Current Scope
-- `globals.css`: Imports Tailwind v4, defines theme colors and fonts, applies base body styling, customizes scrollbars and select menus, and exposes reusable CSS classes backed by shell-level text-zoom variables for transcript, composer, and sidebar typography.
+- `globals.css`: Imports Tailwind v4, defines theme colors and fonts, applies base body styling, customizes scrollbars and select menus, and exposes reusable CSS classes plus shell-level text-zoom variables for transcript, composer, sidebar typography, and composer control sizing including zoom-aware dropdown widths.
 
 ## Guardrails
 - Keep reusable design tokens and shared typography helpers here instead of scattering raw colors or surface-specific font rules through components.
