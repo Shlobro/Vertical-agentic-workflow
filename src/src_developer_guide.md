@@ -17,9 +17,10 @@
 2. UI events call store actions directly for local state changes.
 3. `Sidebar.tsx` owns project-tree presentation details such as inline rename fields, collapse controls, and nested chat actions, while `App.tsx` owns destructive confirmation state and renders the themed confirmation dialog before calling store delete actions.
 4. Choosing `New project` opens the folder picker first. After a folder is chosen, the store creates a project named after the folder plus one empty chat inside it.
-5. Sending a prompt writes optimistic user and assistant messages before calling Tauri with the selected chat and its parent project's working directory.
-6. Tauri events flow back into the same store to mutate the in-progress assistant message and session metadata.
-7. `message-error` events may include partial assistant text. The frontend should preserve that text and append the failure reason instead of replacing it with a blank error state.
+5. The active chat session owns the selected provider and model shown in `InputBar`. Changing either updates that session immediately and clears its saved CLI session id when the configuration changes.
+6. Sending a prompt writes optimistic user and assistant messages before calling Tauri with the selected chat and its parent project's working directory.
+7. Tauri events flow back into the same store to mutate the in-progress assistant message and session metadata.
+8. `message-error` events may include partial assistant text. The frontend should preserve that text and append the failure reason instead of replacing it with a blank error state.
 
 ## Guardrails
 - Keep `App.tsx` as orchestration glue, not a dumping ground for UI logic.

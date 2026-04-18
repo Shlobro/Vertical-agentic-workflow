@@ -19,13 +19,24 @@ export default function App() {
   const activeSession = store.activeSession();
   const activeProject = store.findProjectBySessionId(store.activeSessionId);
   const unlistenRef = useRef<UnlistenFn[]>([]);
-  const [provider, setProvider] = useState<Provider>("claude");
-  const [model, setModel] = useState(MODELS.claude[0].id);
+  const [defaultProvider, setDefaultProvider] = useState<Provider>("claude");
+  const [defaultModel, setDefaultModel] = useState(MODELS.claude[0].id);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete>(null);
 
   function handleProviderChange(nextProvider: Provider) {
-    setProvider(nextProvider);
-    setModel(MODELS[nextProvider][0].id);
+    const nextModel = MODELS[nextProvider][0].id;
+    setDefaultProvider(nextProvider);
+    setDefaultModel(nextModel);
+    if (activeSession) {
+      store.updateSessionConfig(activeSession.id, nextProvider, nextModel);
+    }
+  }
+
+  function handleModelChange(nextModel: string) {
+    setDefaultModel(nextModel);
+    if (activeSession) {
+      store.updateSessionConfig(activeSession.id, activeSession.provider, nextModel);
+    }
   }
 
   useEffect(() => {
@@ -59,7 +70,7 @@ export default function App() {
     try {
       const selected = await open({ directory: true, multiple: false });
       if (typeof selected === "string" && selected) {
-        store.addProject(selected, provider, model);
+        store.addProject(selected, defaultProvider, defaultModel);
       }
     } catch (error) {
       console.error("Failed to open project directory picker", error);
@@ -67,7 +78,7 @@ export default function App() {
   }
 
   function handleNewChat(projectId: string) {
-    store.addSession(projectId, provider, model);
+    store.addSession(projectId, defaultProvider, defaultModel);
   }
 
   function handleDeleteProject(projectId: string) {
@@ -167,10 +178,10 @@ export default function App() {
         {activeSession && activeProject && (
           <InputBar
             streaming={activeSession.isStreaming}
-            provider={provider}
-            model={model}
+            provider={activeSession.provider}
+            model={activeSession.model}
             onProviderChange={handleProviderChange}
-            onModelChange={setModel}
+            onModelChange={handleModelChange}
             onSend={handleSend}
             onCancel={handleCancel}
           />

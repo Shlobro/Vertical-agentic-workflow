@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-04-18
+- Fixed active chat provider/model selection so sending from a session uses the configuration shown in the input bar instead of stale session settings.
+- Clearing a chat's provider/model now resets its saved CLI session id to avoid resuming an incompatible provider thread.
+- Added frontend tests covering session config updates and the send path after switching to Codex.
+- Improved provider startup on Windows by trying common executable suffixes and returning clearer install/PATH errors when Codex or Claude cannot be launched.
+- Added a Windows `cmd.exe` provider-launch fallback so npm-installed CLI shims behave more like the shell-based workflow app.
+
 ## Unreleased
 
 ### Added

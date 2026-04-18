@@ -18,9 +18,10 @@ Vertical is a desktop chat client built with Tauri, React, TypeScript, and Rust.
 2. `src/App.tsx` subscribes to Tauri events once on mount: `stream-chunk`, `message-done`, and `message-error`. Event payload contracts live in `src/types/index.ts`.
 3. `Sidebar` creates or switches projects and chat sessions. Each project stores its title, chosen working directory, collapse state, and nested chat list. Each session stores provider, model, title, messages, streaming state, and the provider CLI session identifier.
 4. Creating a project opens the directory picker first. Once the user picks a folder, the store creates a project named after that folder and inserts one empty chat inside it.
-5. `InputBar` is only rendered when a chat is selected. Sending appends the user prompt and a placeholder assistant message into the Zustand store, then invokes the Rust command `send_message` with the selected chat plus the owning project's working directory.
-6. `src-tauri/src/commands/chat.rs` maps the provider string to a command builder, starts the external CLI process, tracks the running child per chat session, reads JSON from stdout plus diagnostics from stderr, applies a provider timeout, and emits normalized stream updates back to the frontend.
-7. As events arrive, the store updates the in-progress assistant message in place. Completion persists the provider CLI session id so later prompts can resume the same conversation, while failures and cancellations emit a dedicated error event.
+5. `InputBar` is only rendered when a chat is selected. The selected chat session is the source of truth for its provider/model configuration, and changing either resets that session's saved provider CLI session id.
+6. Sending appends the user prompt and a placeholder assistant message into the Zustand store, then invokes the Rust command `send_message` with the selected chat plus the owning project's working directory.
+7. `src-tauri/src/commands/chat.rs` maps the provider string to a command builder, starts the external CLI process, tracks the running child per chat session, reads JSON from stdout plus diagnostics from stderr, applies a provider timeout, and emits normalized stream updates back to the frontend.
+8. As events arrive, the store updates the in-progress assistant message in place. Completion persists the provider CLI session id so later prompts can resume the same conversation, while failures and cancellations emit a dedicated error event.
 
 ## Current Frontend Shape
 - The layout is a fixed two-column shell: project and chat controls on the left, conversation on the right.
@@ -37,6 +38,7 @@ Vertical is a desktop chat client built with Tauri, React, TypeScript, and Rust.
 - `ClaudeProvider` builds `claude --dangerously-skip-permissions --print --output-format stream-json --include-partial-messages ...`.
 - `CodexProvider` builds `codex exec --skip-git-repo-check --full-auto --json ...`, supports GPT and Codex model ids, and maps `:<reasoning-effort>` suffixes into Codex CLI config flags.
 - The command layer captures stderr for user-visible failures, times out stalled provider runs, and tracks running provider processes so the frontend can cancel them.
+- The command layer also resolves common Windows executable suffixes when spawning provider CLIs, falls back to `cmd.exe` for shell-style resolution on Windows, and returns explicit PATH/install errors if a provider executable is unavailable.
 - Streaming events now carry the best known full assistant text for the active request, normalizing providers that emit either deltas, cumulative snapshots, or nested assistant-message payloads.
 
 ## Change Map

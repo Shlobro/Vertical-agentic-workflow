@@ -10,6 +10,7 @@
 ## State Rules
 - Every project is the source of truth for working directory, title, collapse state, and chat membership.
 - Every session is the source of truth for provider, model, transcript, CLI session id, and streaming status.
+- Provider/model changes belong to the active session state, not transient component-local state. If either changes, clear the saved CLI session id unless the configuration is unchanged.
 - Collapsing a project that owns the active chat should clear the active selection so the main pane falls back to the no-chat empty state.
 - Stream updates currently target the last assistant message in a session and expect `stream-chunk` payloads to contain the best known full assistant text. If streaming becomes more complex, keep ordering guarantees explicit.
 - Store actions should stay mutation-focused and synchronous. Async work belongs in components or dedicated service layers that call store actions.

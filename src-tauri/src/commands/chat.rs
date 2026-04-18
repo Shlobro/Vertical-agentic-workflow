@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::io::ErrorKind;
 use std::collections::{HashMap, HashSet};
 use std::process::{ExitStatus, Stdio};
 use std::sync::{Arc, Mutex};
@@ -84,13 +85,7 @@ pub async fn send_message(
         _ => return Err(format!("Unknown provider: {provider}")),
     };
 
-    let child = Command::new(&exe)
-        .args(&args)
-        .current_dir(&working_dir)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| format!("Failed to spawn {exe}: {e}"))?;
+    let child = spawn_provider_process(&provider, &exe, &args, &working_dir)?;
 
     let child = Arc::new(AsyncMutex::new(child));
     let (stdout, stderr) = {
@@ -195,6 +190,11 @@ struct FinalError {
 enum WaitError {
     Process(String),
     TimedOut(Duration),
+}
+
+enum SpawnAttemptError {
+    Missing(std::io::Error),
+    Failed(String),
 }
 
 async fn read_stdout(
@@ -466,11 +466,154 @@ fn format_wait_error(error: WaitError) -> String {
     }
 }
 
+fn spawn_provider_process(
+    provider: &str,
+    exe: &str,
+    args: &[String],
+    working_dir: &str,
+) -> Result<tokio::process::Child, String> {
+    #[cfg(target_os = "windows")]
+    {
+        let direct_error = match try_spawn_candidates(exe, args, working_dir) {
+            Ok(child) => return Ok(child),
+            Err(SpawnAttemptError::Missing(error)) => error,
+            Err(SpawnAttemptError::Failed(message)) => return Err(message),
+        };
+
+        match spawn_provider_via_cmd(exe, args, working_dir) {
+            Ok(child) => return Ok(child),
+            Err(error) if error.kind() == ErrorKind::NotFound => {}
+            Err(error) => {
+                return Err(format!("Failed to spawn {exe} via cmd.exe: {error}"));
+            }
+        }
+        Err(format_missing_provider_error(provider, exe, Some(direct_error)))
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let last_error = match try_spawn_candidates(exe, args, working_dir) {
+            Ok(child) => return Ok(child),
+            Err(SpawnAttemptError::Missing(error)) => Some(error),
+            Err(SpawnAttemptError::Failed(message)) => return Err(message),
+        };
+
+        Err(format_missing_provider_error(
+            provider,
+            exe,
+            last_error,
+        ))
+    }
+}
+
+fn try_spawn_candidates(
+    exe: &str,
+    args: &[String],
+    working_dir: &str,
+) -> Result<tokio::process::Child, SpawnAttemptError> {
+    let mut last_error = None;
+
+    for candidate in executable_candidates(exe) {
+        match Command::new(&candidate)
+            .args(args)
+            .current_dir(working_dir)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+        {
+            Ok(child) => return Ok(child),
+            Err(error) if error.kind() == ErrorKind::NotFound => {
+                last_error = Some(error);
+            }
+            Err(error) => {
+                return Err(SpawnAttemptError::Failed(format!(
+                    "Failed to spawn {candidate}: {error}"
+                )));
+            }
+        }
+    }
+
+    Err(SpawnAttemptError::Missing(last_error.unwrap_or_else(|| {
+        std::io::Error::new(ErrorKind::NotFound, format!("Failed to resolve {exe}"))
+    })))
+}
+
+fn executable_candidates(exe: &str) -> Vec<String> {
+    let mut candidates = vec![exe.to_string()];
+
+    #[cfg(target_os = "windows")]
+    {
+        for extension in [".cmd", ".exe", ".bat"] {
+            if !exe.to_ascii_lowercase().ends_with(extension) {
+                candidates.push(format!("{exe}{extension}"));
+            }
+        }
+    }
+
+    candidates
+}
+
+#[cfg(target_os = "windows")]
+fn spawn_provider_via_cmd(
+    exe: &str,
+    args: &[String],
+    working_dir: &str,
+) -> std::io::Result<tokio::process::Child> {
+    let mut command_line = quote_for_cmd(exe);
+    for arg in args {
+        command_line.push(' ');
+        command_line.push_str(&quote_for_cmd(arg));
+    }
+
+    Command::new("cmd")
+        .args(["/d", "/s", "/c", &command_line])
+        .current_dir(working_dir)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+}
+
+#[cfg(target_os = "windows")]
+fn quote_for_cmd(value: &str) -> String {
+    if value.is_empty() {
+        return "\"\"".to_string();
+    }
+
+    let needs_quotes = value.chars().any(|ch| ch.is_whitespace() || matches!(ch, '"' | '&' | '|' | '<' | '>' | '^' | '%' ));
+    if !needs_quotes {
+        return value.to_string();
+    }
+
+    let escaped = value.replace('"', "\"\"");
+    format!("\"{escaped}\"")
+}
+
+fn format_missing_provider_error(
+    provider: &str,
+    exe: &str,
+    error: Option<std::io::Error>,
+) -> String {
+    let provider_name = match provider {
+        "codex" => "Codex CLI",
+        "claude" => "Claude Code CLI",
+        _ => exe,
+    };
+
+    match error {
+        Some(error) => format!(
+            "{provider_name} was not found on PATH. Install it and restart Vertical. Tried executable '{exe}' and Windows fallback names. Last error: {error}"
+        ),
+        None => format!(
+            "{provider_name} was not found on PATH. Install it and restart Vertical."
+        ),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        finalize_text, format_wait_error, merge_stream_text, try_extract_stream_text, StreamState,
-        WaitError,
+        executable_candidates, finalize_text, format_missing_provider_error, format_wait_error,
+        merge_stream_text, try_extract_stream_text, StreamState, WaitError,
     };
     use std::time::Duration;
 
@@ -531,5 +674,38 @@ mod tests {
     fn formats_timeout_errors() {
         let message = format_wait_error(WaitError::TimedOut(Duration::from_secs(42)));
         assert_eq!(message, "Provider timed out after 42 seconds");
+    }
+
+    #[test]
+    fn missing_codex_error_is_actionable() {
+        let message = format_missing_provider_error("codex", "codex", None);
+        assert!(message.contains("Codex CLI was not found on PATH"));
+    }
+
+    #[test]
+    fn windows_executable_candidates_include_script_extensions() {
+        let candidates = executable_candidates("codex");
+
+        assert!(candidates.contains(&"codex".to_string()));
+
+        #[cfg(target_os = "windows")]
+        {
+            assert!(candidates.contains(&"codex.cmd".to_string()));
+            assert!(candidates.contains(&"codex.exe".to_string()));
+            assert!(candidates.contains(&"codex.bat".to_string()));
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn quote_for_cmd_wraps_paths_and_special_chars() {
+        let quoted = super::quote_for_cmd(r#"C:\Users\Shlomo\AppData\Roaming\npm\codex.cmd"#);
+        assert_eq!(quoted, r#"C:\Users\Shlomo\AppData\Roaming\npm\codex.cmd"#);
+
+        let quoted_with_spaces = super::quote_for_cmd(r#"D:\My Projects\repo name"#);
+        assert_eq!(quoted_with_spaces, r#""D:\My Projects\repo name""#);
+
+        let quoted_with_percent = super::quote_for_cmd("%USERPROFILE%");
+        assert_eq!(quoted_with_percent, r#""%USERPROFILE%""#);
     }
 }

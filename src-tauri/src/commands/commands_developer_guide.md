@@ -12,3 +12,4 @@
 - Keep command modules focused on orchestration. Provider-specific argument construction and JSON extraction belong in `providers/`.
 - Keep the process registry authoritative for cancellation. Any command that ends a request must remove its session entry and emit either `message-done` or `message-error`.
 - Keep stream parsing Unicode-safe because providers may emit partial text with non-ASCII content.
+- Provider launch failures should be actionable. On Windows, try common executable suffixes for CLIs installed as scripts, then fall back to launching through `cmd.exe`, and return a clear PATH/install error when the executable still cannot be resolved.

@@ -26,6 +26,7 @@ interface ChatStore {
   setActiveSession: (id: string | null) => void;
   renameSession: (id: string, title: string) => void;
   deleteSession: (id: string) => void;
+  updateSessionConfig: (id: string, provider: Provider, model: string) => void;
   activeSession: () => ChatSession | null;
   findProjectBySessionId: (sessionId: string | null) => ChatProject | null;
   addMessage: (sessionId: string, msg: Message) => void;
@@ -158,6 +159,25 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         activeSessionId: nextActiveSessionId,
       };
     });
+  },
+
+  updateSessionConfig(id, provider, model) {
+    set((state) => ({
+      projects: state.projects.map((project) => ({
+        ...project,
+        sessions: project.sessions.map((session) =>
+          session.id === id
+            ? {
+                ...session,
+                provider,
+                model,
+                cliSessionId:
+                  session.provider === provider && session.model === model ? session.cliSessionId : "",
+              }
+            : session
+        ),
+      })),
+    }));
   },
 
   activeSession() {

@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { useChatStore } from "./store/chatStore";
+import { invoke } from "@tauri-apps/api/core";
 
 const listenMock = vi.fn();
 const openMock = vi.fn();
@@ -51,7 +52,27 @@ vi.mock("./components/ChatView", () => ({
 }));
 
 vi.mock("./components/InputBar", () => ({
-  default: () => <div data-testid="input-bar" />,
+  default: ({
+    provider,
+    model,
+    onProviderChange,
+    onModelChange,
+    onSend,
+  }: {
+    provider: string;
+    model: string;
+    onProviderChange: (provider: "claude" | "codex") => void;
+    onModelChange: (model: string) => void;
+    onSend: (text: string) => void;
+  }) => (
+    <div data-testid="input-bar">
+      <div data-testid="active-provider">{provider}</div>
+      <div data-testid="active-model">{model}</div>
+      <button onClick={() => onProviderChange("codex")}>Switch provider</button>
+      <button onClick={() => onModelChange("gpt-5.4:high")}>Switch model</button>
+      <button onClick={() => onSend("hello")}>Send</button>
+    </div>
+  ),
 }));
 
 describe("App", () => {
@@ -122,5 +143,35 @@ describe("App", () => {
 
     expect(screen.queryByTestId("input-bar")).toBeNull();
     expect(screen.getByTestId("chat-view").textContent).toBe("empty");
+  });
+
+  it("updates the active session config before sending", async () => {
+    const store = useChatStore.getState();
+    const project = store.addProject("D:\\Projects\\Alpha", "claude", "claude-sonnet-4-6");
+    const session = project.sessions[0];
+    store.finalizeAssistant(session.id, "", "claude-session-1");
+    const invokeMock = vi.mocked(invoke);
+    invokeMock.mockResolvedValue(undefined);
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Switch provider" }));
+    fireEvent.click(screen.getByRole("button", { name: "Switch model" }));
+
+    expect(screen.getByTestId("active-provider").textContent).toBe("codex");
+    expect(screen.getByTestId("active-model").textContent).toBe("gpt-5.4:high");
+
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("send_message", {
+        sessionUuid: session.id,
+        provider: "codex",
+        model: "gpt-5.4:high",
+        prompt: "hello",
+        cliSessionId: null,
+        workingDir: "D:\\Projects\\Alpha",
+      });
+    });
   });
 });
