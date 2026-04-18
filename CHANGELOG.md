@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- Fixed the sidebar search scope popover layering so it stays above project and chat action menus when opened.
+- Updated the sidebar header so the `+` new-project button sits to the left of the search bar on the same row, and moved the search scope control inside the search field with a distinct settings icon.
 - Fixed composer provider/model dropdown triggers so `Ctrl + mouse wheel` zoom scales their width, height, padding, and icons with the text while keeping the model trigger wider than the provider trigger and labels on one line.
 - Increased the closed provider dropdown width slightly so `OpenAI` fits comfortably across composer zoom levels.
 - Increased the composer growth limit so the full bottom input panel can expand up to 50% of the window height before the textarea starts scrolling.

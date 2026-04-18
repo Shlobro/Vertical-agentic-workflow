@@ -8,6 +8,7 @@ import {
   Pencil,
   Plus,
   Search,
+  SlidersHorizontal,
   Trash2,
   X,
 } from "lucide-react";
@@ -265,18 +266,23 @@ export default function Sidebar({
         />
       </div>
 
-      <div className="px-3 pt-5 pb-3 border-b border-border space-y-2">
-        <button
-          onClick={() => void onNewProject()}
-          className="sidebar-font-base w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors"
-        >
-          <Plus size={15} />
-          New Project
-        </button>
+      <div className="relative z-20 border-b border-border px-3 pb-3 pt-5">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            aria-label="New project"
+            title="New project"
+            onClick={() => void onNewProject()}
+            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white transition-colors hover:bg-blue-500"
+          >
+            <Plus size={16} />
+          </button>
 
-        <div className="flex items-center gap-1.5">
           <div className="relative flex-1">
-            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+            <Search
+              size={13}
+              className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted"
+            />
             <input
               ref={searchInputRef}
               type="text"
@@ -287,74 +293,87 @@ export default function Sidebar({
                 if (!next) onSearchClear();
                 else onSearchQueryChange(next, searchScope.chatContents);
               }}
-              placeholder={scopeEmpty ? "No scope selected" : "Search…"}
+              placeholder={scopeEmpty ? "No scope selected" : "Search..."}
               aria-label="Search projects and chats"
               disabled={scopeEmpty}
-              className={`sidebar-font-small w-full rounded-lg border border-border bg-surface pl-7 pr-7 py-1.5 placeholder:text-text-muted outline-none transition-colors ${
+              className={`sidebar-font-small h-9 w-full rounded-lg border border-border bg-surface py-1.5 pl-7 pr-16 placeholder:text-text-muted outline-none transition-colors ${
                 scopeEmpty
-                  ? "opacity-40 cursor-not-allowed text-text-muted"
+                  ? "cursor-not-allowed text-text-muted opacity-40"
                   : "text-text-primary focus:border-blue-400"
               }`}
             />
-            {isSearching && (
-              <button
-                type="button"
-                aria-label="Clear search"
-                onClick={() => { setSearchQuery(""); onSearchClear(); searchInputRef.current?.focus(); }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
-              >
-                <X size={12} />
-              </button>
-            )}
-          </div>
+            <div className="absolute right-1.5 top-1/2 flex -translate-y-1/2 items-center gap-1">
+              {isSearching && (
+                <button
+                  type="button"
+                  aria-label="Clear search"
+                  onClick={() => {
+                    setSearchQuery("");
+                    onSearchClear();
+                    searchInputRef.current?.focus();
+                  }}
+                  className="rounded-md p-1 text-text-muted transition-colors hover:bg-surface-hover hover:text-text-primary"
+                >
+                  <X size={12} />
+                </button>
+              )}
 
-          <div className="relative" ref={searchMenuRef}>
-            <button
-              type="button"
-              aria-label="Search options"
-              onClick={() => setSearchMenuOpen((o) => !o)}
-              className={`rounded-md p-1.5 transition-colors ${
-                searchMenuOpen
-                  ? "bg-surface text-text-primary"
-                  : "text-text-muted hover:bg-surface-hover hover:text-text-primary"
-              }`}
-            >
-              <Ellipsis size={14} />
-            </button>
+              <div className="relative" ref={searchMenuRef}>
+                <button
+                  type="button"
+                  aria-label="Search options"
+                  onClick={() => setSearchMenuOpen((o) => !o)}
+                  className={`rounded-md border p-1 transition-colors ${
+                    searchMenuOpen
+                      ? "border-blue-400 bg-surface-hover text-text-primary"
+                      : "border-transparent text-text-muted hover:border-border hover:bg-surface-hover hover:text-text-primary"
+                  }`}
+                >
+                  <SlidersHorizontal size={13} />
+                </button>
 
-            {searchMenuOpen && (
-              <div className="absolute right-0 top-10 z-10 min-w-44 rounded-lg border border-border bg-surface p-1 shadow-lg">
-                {(
-                  [
-                    { key: "projectNames", label: "Project names" },
-                    { key: "chatNames", label: "Chat names" },
-                    { key: "chatContents", label: "Chat contents" },
-                  ] as { key: keyof SearchScope; label: string }[]
-                ).map(({ key, label }) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => toggleScopeKey(key)}
-                    className="sidebar-font-base flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left text-text-primary hover:bg-surface-hover"
-                  >
-                    <span
-                      className={`flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center rounded-sm border transition-colors ${
-                        searchScope[key]
-                          ? "border-blue-500 bg-blue-500"
-                          : "border-border bg-transparent"
-                      }`}
-                    >
-                      {searchScope[key] && (
-                        <svg viewBox="0 0 10 8" className="h-2 w-2 fill-white" aria-hidden="true">
-                          <path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      )}
-                    </span>
-                    {label}
-                  </button>
-                ))}
+                {searchMenuOpen && (
+                  <div className="absolute right-0 top-10 z-30 min-w-44 rounded-lg border border-border bg-surface p-1 shadow-lg">
+                    {(
+                      [
+                        { key: "projectNames", label: "Project names" },
+                        { key: "chatNames", label: "Chat names" },
+                        { key: "chatContents", label: "Chat contents" },
+                      ] as { key: keyof SearchScope; label: string }[]
+                    ).map(({ key, label }) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => toggleScopeKey(key)}
+                        className="sidebar-font-base flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left text-text-primary hover:bg-surface-hover"
+                      >
+                        <span
+                          className={`flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center rounded-sm border transition-colors ${
+                            searchScope[key]
+                              ? "border-blue-500 bg-blue-500"
+                              : "border-border bg-transparent"
+                          }`}
+                        >
+                          {searchScope[key] && (
+                            <svg viewBox="0 0 10 8" className="h-2 w-2 fill-white" aria-hidden="true">
+                              <path
+                                d="M1 4l3 3 5-6"
+                                stroke="white"
+                                strokeWidth="1.5"
+                                fill="none"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          )}
+                        </span>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
         </div>
       </div>
@@ -426,7 +445,9 @@ export default function Sidebar({
                     <button
                       type="button"
                       aria-label={`Open actions for project ${project.title}`}
-                      onClick={() => setOpenMenuId((current) => (current === project.id ? null : project.id))}
+                      onClick={() =>
+                        setOpenMenuId((current) => (current === project.id ? null : project.id))
+                      }
                       className={`rounded-md p-1.5 transition-colors ${
                         openMenuId === project.id
                           ? "bg-surface text-text-primary"
@@ -437,7 +458,10 @@ export default function Sidebar({
                     </button>
 
                     {openMenuId === project.id && (
-                      <div ref={menuRef} className="absolute right-0 top-10 z-10 min-w-40 rounded-lg border border-border bg-surface p-1 shadow-lg">
+                      <div
+                        ref={menuRef}
+                        className="absolute right-0 top-10 z-10 min-w-40 rounded-lg border border-border bg-surface p-1 shadow-lg"
+                      >
                         <button
                           type="button"
                           onClick={() => startRenameProject(project)}
@@ -475,7 +499,10 @@ export default function Sidebar({
                   {filteredSessions.map(({ session, lastMatchingMessageId }) => {
                     const editingSession =
                       editingItem?.kind === "session" && editingItem.id === session.id;
-                    const titleMatches = isSearching && searchScope.chatNames && session.title.toLowerCase().includes(searchQuery.trim().toLowerCase());
+                    const titleMatches =
+                      isSearching &&
+                      searchScope.chatNames &&
+                      session.title.toLowerCase().includes(searchQuery.trim().toLowerCase());
 
                     return (
                       <div
@@ -509,7 +536,9 @@ export default function Sidebar({
                               className="flex flex-1 min-w-0 items-center gap-2 px-3 py-2 text-left"
                             >
                               {(() => {
-                                const lastMsgProvider = [...session.messages].reverse().find((m) => m.provider)?.provider ?? session.provider;
+                                const lastMsgProvider =
+                                  [...session.messages].reverse().find((m) => m.provider)?.provider ??
+                                  session.provider;
                                 return session.isStreaming ? (
                                   <motion.img
                                     src={PROVIDER_ICONS[lastMsgProvider]}
@@ -539,7 +568,9 @@ export default function Sidebar({
                               type="button"
                               aria-label={`Open actions for ${session.title}`}
                               onClick={() =>
-                                setOpenMenuId((current) => (current === session.id ? null : session.id))
+                                setOpenMenuId((current) =>
+                                  current === session.id ? null : session.id,
+                                )
                               }
                               className={`rounded-md p-1.5 transition-colors ${
                                 openMenuId === session.id
@@ -551,7 +582,10 @@ export default function Sidebar({
                             </button>
 
                             {openMenuId === session.id && (
-                              <div ref={menuRef} className="absolute right-1 top-10 z-10 min-w-36 rounded-lg border border-border bg-surface p-1 shadow-lg">
+                              <div
+                                ref={menuRef}
+                                className="absolute right-1 top-10 z-10 min-w-36 rounded-lg border border-border bg-surface p-1 shadow-lg"
+                              >
                                 <button
                                   type="button"
                                   onClick={() => startRenameSession(session)}

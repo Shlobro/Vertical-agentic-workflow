@@ -153,6 +153,19 @@ describe("Sidebar", () => {
     expect(screen.queryByText("Second chat")).toBeNull();
   });
 
+  it("renders the new project control as a compact plus button beside the search bar", () => {
+    const onNewProject = vi.fn();
+
+    renderSidebar({ onNewProject });
+
+    const newProjectButton = screen.getByRole("button", { name: "New project" });
+    expect(newProjectButton.textContent?.trim()).toBe("");
+
+    fireEvent.click(newProjectButton);
+
+    expect(onNewProject).toHaveBeenCalledTimes(1);
+  });
+
   it("filters projects by chat title when searching", () => {
     renderSidebar();
 
@@ -197,6 +210,18 @@ describe("Sidebar", () => {
 
     const searchInput = screen.getByRole("textbox", { name: "Search projects and chats" });
     expect((searchInput as HTMLInputElement).disabled).toBe(true);
+  });
+
+  it("renders the search options popover above project and chat action menus", () => {
+    const { container } = renderSidebar();
+
+    fireEvent.click(screen.getByRole("button", { name: "Search options" }));
+
+    const searchPopover = screen.getByText("Project names").closest("div");
+    expect(searchPopover?.className).toContain("z-30");
+
+    const header = container.querySelector(".border-b.border-border");
+    expect(header?.className).toContain("z-20");
   });
 
   it("shows no results message when search matches nothing", () => {
