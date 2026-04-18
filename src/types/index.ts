@@ -22,7 +22,13 @@ export interface ChatProject {
   title: string;
   workingDir: string;
   collapsed: boolean;
+  lastActiveSessionId: string | null;
   sessions: ChatSession[];
+}
+
+export interface PersistedWorkspaceState {
+  projects: ChatProject[];
+  activeSessionId: string | null;
 }
 
 export interface StreamChunkEvent {

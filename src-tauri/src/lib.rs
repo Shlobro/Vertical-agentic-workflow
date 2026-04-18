@@ -2,6 +2,9 @@ mod commands;
 mod providers;
 
 use commands::chat::{cancel_message, send_message, ActiveProcesses};
+use commands::persistence::{
+    delete_project_state, load_project_state, load_workspace_state, save_workspace_state,
+};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -10,7 +13,14 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
-        .invoke_handler(tauri::generate_handler![send_message, cancel_message])
+        .invoke_handler(tauri::generate_handler![
+            send_message,
+            cancel_message,
+            load_project_state,
+            load_workspace_state,
+            save_workspace_state,
+            delete_project_state
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

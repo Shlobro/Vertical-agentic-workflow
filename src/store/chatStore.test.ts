@@ -16,6 +16,7 @@ describe("chatStore", () => {
     expect(project.title).toBe("Alpha");
     expect(project.sessions).toHaveLength(1);
     expect(state.activeSessionId).toBe(project.sessions[0].id);
+    expect(project.lastActiveSessionId).toBe(project.sessions[0].id);
     expect(state.activeSession()).toMatchObject({
       id: project.sessions[0].id,
       provider: "claude",
@@ -35,6 +36,7 @@ describe("chatStore", () => {
     expect(session?.provider).toBe("codex");
     expect(updatedProject.sessions).toHaveLength(2);
     expect(useChatStore.getState().activeSessionId).toBe(session?.id);
+    expect(updatedProject.lastActiveSessionId).toBe(session?.id);
   });
 
   it("updates and finalizes the last assistant message", () => {
@@ -89,6 +91,60 @@ describe("chatStore", () => {
     const state = useChatStore.getState();
     expect(state.projects.map((project) => project.title)).toEqual(["Beta"]);
     expect(state.activeSessionId).toBeNull();
+  });
+
+  it("hydrates persisted workspace state", () => {
+    useChatStore.getState().hydrateWorkspace({
+      projects: [
+        {
+          id: "project-1",
+          title: "Alpha",
+          workingDir: "D:\\Projects\\Alpha",
+          collapsed: false,
+          lastActiveSessionId: "session-2",
+          sessions: [
+            {
+              id: "session-1",
+              title: "Chat 1",
+              provider: "claude",
+              model: "claude-sonnet-4-6",
+              cliSessionId: "",
+              messages: [],
+              isStreaming: false,
+            },
+            {
+              id: "session-2",
+              title: "Chat 2",
+              provider: "codex",
+              model: "gpt-5.4",
+              cliSessionId: "",
+              messages: [],
+              isStreaming: false,
+            },
+          ],
+        },
+      ],
+      activeSessionId: "session-2",
+    });
+
+    const state = useChatStore.getState();
+    expect(state.projects).toHaveLength(1);
+    expect(state.activeSessionId).toBe("session-2");
+    expect(state.activeSession()?.title).toBe("Chat 2");
+  });
+
+  it("tracks the latest selected chat per project", () => {
+    const store = useChatStore.getState();
+    const first = store.addProject("D:\\Projects\\Alpha", "claude", "claude-sonnet-4-6");
+    const second = store.addProject("D:\\Projects\\Beta", "codex", "gpt-5.4");
+
+    store.setActiveSession(first.sessions[0].id);
+
+    const updatedFirst = useChatStore.getState().projects.find((project) => project.id === first.id);
+    const updatedSecond = useChatStore.getState().projects.find((project) => project.id === second.id);
+
+    expect(updatedFirst?.lastActiveSessionId).toBe(first.sessions[0].id);
+    expect(updatedSecond?.lastActiveSessionId).toBe(second.sessions[0].id);
   });
 
   it("renames a chat with trimmed text", () => {

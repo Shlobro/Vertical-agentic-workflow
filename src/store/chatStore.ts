@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { ChatProject, ChatSession, Message, Provider } from "../types";
+import { ChatProject, ChatSession, Message, PersistedWorkspaceState, Provider } from "../types";
 
 let sessionCounter = 1;
 
@@ -18,7 +18,9 @@ function createSession(provider: Provider, model: string): ChatSession {
 interface ChatStore {
   projects: ChatProject[];
   activeSessionId: string | null;
+  hydrateWorkspace: (state: PersistedWorkspaceState) => void;
   addProject: (workingDir: string, provider: Provider, model: string) => ChatProject;
+  upsertProject: (project: ChatProject, activateLoadedSession?: boolean) => void;
   renameProject: (projectId: string, title: string) => void;
   deleteProject: (projectId: string) => void;
   toggleProjectCollapsed: (projectId: string) => void;
@@ -34,11 +36,19 @@ interface ChatStore {
   finalizeAssistant: (sessionId: string, text: string, cliSessionId: string) => void;
   setStreaming: (sessionId: string, streaming: boolean) => void;
   updateSessionTitle: (sessionId: string) => void;
+  findProjectByWorkingDir: (workingDir: string) => ChatProject | null;
 }
 
 export const useChatStore = create<ChatStore>((set, get) => ({
   projects: [],
   activeSessionId: null,
+
+  hydrateWorkspace(state) {
+    set({
+      projects: state.projects,
+      activeSessionId: state.activeSessionId,
+    });
+  },
 
   addProject(workingDir, provider, model) {
     const title = workingDir.split(/[\\/]/).filter(Boolean).pop() || "New Project";
@@ -48,6 +58,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       title,
       workingDir,
       collapsed: false,
+      lastActiveSessionId: session.id,
       sessions: [session],
     };
 
@@ -57,6 +68,27 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     }));
 
     return project;
+  },
+
+  upsertProject(project, activateLoadedSession = true) {
+    set((state) => {
+      const existingIndex = state.projects.findIndex(
+        (item) => item.workingDir.toLowerCase() === project.workingDir.toLowerCase()
+      );
+      const nextProjects =
+        existingIndex === -1
+          ? [...state.projects, project]
+          : state.projects.map((item, index) => (index === existingIndex ? project : item));
+      const nextActiveSessionId =
+        activateLoadedSession
+          ? project.lastActiveSessionId ?? project.sessions[0]?.id ?? null
+          : state.activeSessionId;
+
+      return {
+        projects: nextProjects,
+        activeSessionId: nextActiveSessionId,
+      };
+    });
   },
 
   renameProject(projectId, title) {
@@ -111,6 +143,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         return {
           ...project,
           collapsed: false,
+          lastActiveSessionId: session.id,
           sessions: [...project.sessions, session],
         };
       }),
@@ -121,7 +154,15 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   setActiveSession(id) {
-    set({ activeSessionId: id });
+    set((state) => ({
+      activeSessionId: id,
+      projects: state.projects.map((project) => ({
+        ...project,
+        lastActiveSessionId: project.sessions.some((session) => session.id === id)
+          ? id
+          : project.lastActiveSessionId,
+      })),
+    }));
   },
 
   renameSession(id, title) {
@@ -151,7 +192,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           nextActiveSessionId = sessions[index]?.id ?? sessions[index - 1]?.id ?? null;
         }
 
-        return { ...project, sessions };
+        return {
+          ...project,
+          lastActiveSessionId:
+            project.lastActiveSessionId === id ? (sessions[index]?.id ?? sessions[index - 1]?.id ?? null) : project.lastActiveSessionId,
+          sessions,
+        };
       });
 
       return {
@@ -193,6 +239,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     if (!sessionId) return null;
     return get().projects.find((project) =>
       project.sessions.some((session) => session.id === sessionId)
+    ) ?? null;
+  },
+
+  findProjectByWorkingDir(workingDir) {
+    return get().projects.find(
+      (project) => project.workingDir.toLowerCase() === workingDir.toLowerCase()
     ) ?? null;
   },
 

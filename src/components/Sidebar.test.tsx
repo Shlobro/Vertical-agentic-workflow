@@ -10,6 +10,7 @@ const projects: ChatProject[] = [
     title: "Alpha",
     workingDir: "D:\\Projects\\Alpha",
     collapsed: false,
+    lastActiveSessionId: "session-1",
     sessions: [
       {
         id: "session-1",
@@ -27,6 +28,7 @@ const projects: ChatProject[] = [
     title: "Beta",
     workingDir: "D:\\Projects\\Beta",
     collapsed: false,
+    lastActiveSessionId: "session-2",
     sessions: [
       {
         id: "session-2",

@@ -81,6 +81,20 @@ describe("App", () => {
       projects: [],
       activeSessionId: null,
     });
+    const invokeMock = vi.mocked(invoke);
+    invokeMock.mockReset();
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "load_workspace_state") {
+        return {
+          projects: [],
+          activeSessionId: null,
+        };
+      }
+      if (command === "load_project_state") {
+        return null;
+      }
+      return undefined;
+    });
     listenMock.mockReset();
     listenMock.mockResolvedValue(vi.fn());
     openMock.mockReset();
@@ -151,7 +165,18 @@ describe("App", () => {
     const session = project.sessions[0];
     store.finalizeAssistant(session.id, "", "claude-session-1");
     const invokeMock = vi.mocked(invoke);
-    invokeMock.mockResolvedValue(undefined);
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "load_workspace_state") {
+        return {
+          projects: [],
+          activeSessionId: null,
+        };
+      }
+      if (command === "load_project_state") {
+        return null;
+      }
+      return undefined;
+    });
 
     render(<App />);
 
@@ -172,6 +197,93 @@ describe("App", () => {
         cliSessionId: null,
         workingDir: "D:\\Projects\\Alpha",
       });
+    });
+  });
+
+  it("hydrates projects from persisted workspace state on startup", async () => {
+    const invokeMock = vi.mocked(invoke);
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "load_workspace_state") {
+        return {
+          projects: [
+            {
+              id: "project-1",
+              title: "Alpha",
+              workingDir: "D:\\Projects\\Alpha",
+              collapsed: false,
+              lastActiveSessionId: "session-2",
+              sessions: [
+                {
+                  id: "session-2",
+                  title: "Saved chat",
+                  provider: "claude",
+                  model: "claude-sonnet-4-6",
+                  cliSessionId: "",
+                  messages: [],
+                  isStreaming: false,
+                },
+              ],
+            },
+          ],
+          activeSessionId: "session-2",
+        };
+      }
+      if (command === "load_project_state") {
+        return null;
+      }
+      return undefined;
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(useChatStore.getState().projects).toHaveLength(1);
+      expect(useChatStore.getState().activeSessionId).toBe("session-2");
+    });
+  });
+
+  it("loads an existing persisted project instead of creating a fresh one", async () => {
+    const invokeMock = vi.mocked(invoke);
+    invokeMock.mockImplementation(async (command, args) => {
+      if (command === "load_workspace_state") {
+        return {
+          projects: [],
+          activeSessionId: null,
+        };
+      }
+      if (command === "load_project_state") {
+        expect(args).toEqual({ workingDir: "D:\\Projects\\Workspace" });
+        return {
+          id: "project-1",
+          title: "Workspace",
+          workingDir: "D:\\Projects\\Workspace",
+          collapsed: false,
+          lastActiveSessionId: "session-9",
+          sessions: [
+            {
+              id: "session-9",
+              title: "Loaded chat",
+              provider: "codex",
+              model: "gpt-5.4",
+              cliSessionId: "thread-9",
+              messages: [],
+              isStreaming: false,
+            },
+          ],
+        };
+      }
+      return undefined;
+    });
+    openMock.mockResolvedValue("D:\\Projects\\Workspace");
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "New project" }));
+
+    await waitFor(() => {
+      expect(useChatStore.getState().projects).toHaveLength(1);
+      expect(useChatStore.getState().projects[0].sessions[0].title).toBe("Loaded chat");
+      expect(useChatStore.getState().activeSessionId).toBe("session-9");
     });
   });
 });

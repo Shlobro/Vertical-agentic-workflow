@@ -3,7 +3,15 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useChatStore } from "./store/chatStore";
-import { MessageDoneEvent, MessageErrorEvent, Provider, StreamChunkEvent, MODELS } from "./types";
+import {
+  ChatProject,
+  MessageDoneEvent,
+  MessageErrorEvent,
+  PersistedWorkspaceState,
+  Provider,
+  StreamChunkEvent,
+  MODELS,
+} from "./types";
 import Sidebar from "./components/Sidebar";
 import ChatView from "./components/ChatView";
 import ConfirmDialog from "./components/ConfirmDialog";
@@ -19,6 +27,8 @@ export default function App() {
   const activeSession = store.activeSession();
   const activeProject = store.findProjectBySessionId(store.activeSessionId);
   const unlistenRef = useRef<UnlistenFn[]>([]);
+  const hydrationCompleteRef = useRef(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [defaultProvider, setDefaultProvider] = useState<Provider>("claude");
   const [defaultModel, setDefaultModel] = useState(MODELS.claude[0].id);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete>(null);
@@ -38,6 +48,21 @@ export default function App() {
       store.updateSessionConfig(activeSession.id, activeSession.provider, nextModel);
     }
   }
+
+  useEffect(() => {
+    const loadWorkspace = async () => {
+      try {
+        const state = await invoke<PersistedWorkspaceState>("load_workspace_state");
+        store.hydrateWorkspace(state);
+      } catch (error) {
+        console.error("Failed to load persisted workspace state", error);
+      } finally {
+        hydrationCompleteRef.current = true;
+      }
+    };
+
+    void loadWorkspace();
+  }, []);
 
   useEffect(() => {
     const setup = async () => {
@@ -66,10 +91,53 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    const unsubscribe = useChatStore.subscribe((state, previousState) => {
+      if (!hydrationCompleteRef.current) return;
+      if (state.projects === previousState.projects && state.activeSessionId === previousState.activeSessionId) {
+        return;
+      }
+
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+      }
+
+      saveTimerRef.current = setTimeout(() => {
+        invoke("save_workspace_state", {
+          projects: useChatStore.getState().projects,
+          activeSessionId: useChatStore.getState().activeSessionId,
+        }).catch((error) => {
+          console.error("Failed to save workspace state", error);
+        });
+      }, 150);
+    });
+
+    return () => {
+      unsubscribe();
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+      }
+    };
+  }, []);
+
   async function handleNewProject() {
     try {
       const selected = await open({ directory: true, multiple: false });
       if (typeof selected === "string" && selected) {
+        const existingProject = store.findProjectByWorkingDir(selected);
+        if (existingProject) {
+          store.setActiveSession(existingProject.lastActiveSessionId ?? existingProject.sessions[0]?.id ?? null);
+          return;
+        }
+
+        const persistedProject = await invoke<ChatProject | null>("load_project_state", {
+          workingDir: selected,
+        });
+        if (persistedProject) {
+          store.upsertProject(persistedProject);
+          return;
+        }
+
         store.addProject(selected, defaultProvider, defaultModel);
       }
     } catch (error) {
@@ -89,10 +157,23 @@ export default function App() {
     setPendingDelete({ kind: "session", id: sessionId });
   }
 
-  function handleConfirmDelete() {
+  async function handleConfirmDelete() {
     if (!pendingDelete) return;
 
     if (pendingDelete.kind === "project") {
+      const project = store.projects.find((item) => item.id === pendingDelete.id);
+      if (!project) {
+        setPendingDelete(null);
+        return;
+      }
+
+      try {
+        await invoke("delete_project_state", { workingDir: project.workingDir });
+      } catch (error) {
+        console.error("Failed to delete project storage", error);
+        return;
+      }
+
       store.deleteProject(pendingDelete.id);
     } else {
       store.deleteSession(pendingDelete.id);
