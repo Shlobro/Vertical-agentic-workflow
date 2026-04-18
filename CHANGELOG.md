@@ -1,6 +1,10 @@
 # Changelog
 
 ## Unreleased
+- Added `@` file mentions in the composer. Typing `@` now shows relative file-path suggestions from the active project, `ArrowUp` and `ArrowDown` move the highlighted match, and `Tab` inserts the selected path into the prompt.
+- Updated the composer file-suggestion popup to flip above the input when there is not enough viewport space below it, keeping `@` completions visible near the bottom edge of the window.
+- Updated `Tab` completion for composer file mentions so accepting a suggestion inserts the path followed by a trailing space.
+- Added the `list_project_files` Tauri command plus frontend and Rust coverage for project file indexing and composer mention completion.
 - Added `Ctrl + mouse wheel` text zoom with separate persisted sizes for the chat transcript, the composer, and the sidebar. The zoom state is stored in workspace preferences and restored on startup.
 - Added per-message `provider` and `model` fields stamped on assistant messages at finalization, so each message bubble displays the logo of the provider that generated it regardless of subsequent provider changes on the same session.
 - Added an `isContextHandoff` flag on `Message` to mark the synthetic transcript injected when switching providers mid-chat.

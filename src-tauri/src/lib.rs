@@ -4,7 +4,7 @@ mod providers;
 use commands::chat::{cancel_message, send_message, ActiveProcesses};
 use commands::persistence::{
     check_missing_companion_files, create_missing_companion_files, delete_project_state,
-    load_project_state, load_workspace_state, save_workspace_state,
+    list_project_files, load_project_state, load_workspace_state, save_workspace_state,
 };
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -19,6 +19,7 @@ pub fn run() {
             cancel_message,
             check_missing_companion_files,
             create_missing_companion_files,
+            list_project_files,
             load_project_state,
             load_workspace_state,
             save_workspace_state,

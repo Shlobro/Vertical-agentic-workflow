@@ -3,8 +3,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import InputBar from "./InputBar";
 
 describe("InputBar", () => {
+  const originalInnerHeight = window.innerHeight;
+
   afterEach(() => {
     cleanup();
+    window.innerHeight = originalInnerHeight;
+    vi.restoreAllMocks();
   });
 
   function renderBar(overrides: Partial<Parameters<typeof InputBar>[0]> = {}) {
@@ -12,6 +16,7 @@ describe("InputBar", () => {
       streaming: false,
       provider: "claude" as const,
       model: "claude-sonnet-4-6",
+      projectFilePaths: [],
       onProviderChange: vi.fn(),
       onModelChange: vi.fn(),
       onSend: vi.fn(),
@@ -82,5 +87,85 @@ describe("InputBar", () => {
     const opusOption = screen.getByText("Claude Opus 4.7");
     fireEvent.click(opusOption);
     expect(onModelChange).toHaveBeenCalledWith("claude-opus-4-7");
+  });
+
+  it("shows matching file suggestions for @mentions and inserts the highlighted path with tab", () => {
+    renderBar({
+      projectFilePaths: ["README.md", "src/components/InputBar.tsx", "src/App.tsx"],
+    });
+
+    const textarea = screen.getByLabelText("Message") as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: "@inp" } });
+
+    expect(screen.getByRole("listbox", { name: "File suggestions" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "src/components/InputBar.tsx" })).toBeTruthy();
+
+    fireEvent.keyDown(textarea, { key: "Tab", code: "Tab" });
+
+    expect(textarea.value).toBe("src/components/InputBar.tsx ");
+    expect(screen.queryByRole("listbox", { name: "File suggestions" })).toBeNull();
+  });
+
+  it("supports arrow keys before tab commits the selected file path", () => {
+    renderBar({
+      projectFilePaths: ["docs/input-reference.md", "src/components/InputBar.tsx"],
+    });
+
+    const textarea = screen.getByLabelText("Message") as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: "@input" } });
+
+    const options = screen.getAllByRole("option");
+    expect(options[0].getAttribute("aria-selected")).toBe("true");
+
+    fireEvent.keyDown(textarea, { key: "ArrowDown", code: "ArrowDown" });
+
+    const updatedOptions = screen.getAllByRole("option");
+    expect(updatedOptions[1].getAttribute("aria-selected")).toBe("true");
+
+    fireEvent.keyDown(textarea, { key: "Tab", code: "Tab" });
+
+    expect(textarea.value).toBe("docs/input-reference.md ");
+  });
+
+  it("places file suggestions above the composer when there is not enough room below", () => {
+    window.innerHeight = 640;
+
+    const rectSpy = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect");
+    rectSpy.mockImplementation(function (this: HTMLElement) {
+      if (this.tagName === "DIV" && this.className.includes("rounded-xl border border-border bg-surface")) {
+        return {
+          x: 0,
+          y: 520,
+          top: 520,
+          bottom: 620,
+          left: 0,
+          right: 400,
+          width: 400,
+          height: 100,
+          toJSON: () => ({}),
+        };
+      }
+
+      return {
+        x: 0,
+        y: 0,
+        top: 0,
+        bottom: 0,
+        left: 0,
+        right: 0,
+        width: 0,
+        height: 0,
+        toJSON: () => ({}),
+      };
+    });
+
+    renderBar({
+      projectFilePaths: ["src/components/InputBar.tsx"],
+    });
+
+    const textarea = screen.getByLabelText("Message") as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: "@inp" } });
+
+    expect(screen.getByRole("listbox", { name: "File suggestions" }).getAttribute("data-placement")).toBe("above");
   });
 });

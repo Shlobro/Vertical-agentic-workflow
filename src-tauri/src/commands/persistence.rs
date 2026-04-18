@@ -35,6 +35,12 @@ pub struct MissingCompanionFilesState {
     pub missing_files: Vec<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectFileList {
+    pub paths: Vec<String>,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PersistedProject {
@@ -150,6 +156,13 @@ pub fn create_missing_companion_files(
     }
 
     Ok(())
+}
+
+#[tauri::command]
+pub fn list_project_files(working_dir: String) -> Result<ProjectFileList, String> {
+    Ok(ProjectFileList {
+        paths: collect_project_files(Path::new(&working_dir))?,
+    })
 }
 
 #[tauri::command]
@@ -444,6 +457,59 @@ fn normalize_companion_file_names(file_names: Vec<String>) -> Result<Vec<String>
     Ok(normalized)
 }
 
+fn collect_project_files(project_root: &Path) -> Result<Vec<String>, String> {
+    let mut collected = Vec::new();
+    collect_project_files_recursive(project_root, project_root, &mut collected)?;
+    collected.sort_unstable();
+    Ok(collected)
+}
+
+fn collect_project_files_recursive(
+    project_root: &Path,
+    current_dir: &Path,
+    collected: &mut Vec<String>,
+) -> Result<(), String> {
+    for entry in fs::read_dir(current_dir)
+        .map_err(|error| format!("Failed to read directory '{}': {error}", current_dir.display()))?
+    {
+        let entry = entry.map_err(|error| format!("Failed to read project entry: {error}"))?;
+        let path = entry.path();
+        let file_type = entry
+            .file_type()
+            .map_err(|error| format!("Failed to inspect '{}': {error}", path.display()))?;
+
+        if file_type.is_symlink() {
+            continue;
+        }
+
+        if file_type.is_dir() {
+            if should_skip_directory(&entry.file_name()) {
+                continue;
+            }
+            collect_project_files_recursive(project_root, &path, collected)?;
+            continue;
+        }
+
+        if !file_type.is_file() {
+            continue;
+        }
+
+        let relative_path = path
+            .strip_prefix(project_root)
+            .map_err(|error| format!("Failed to normalize '{}': {error}", path.display()))?;
+        collected.push(relative_path.to_string_lossy().replace('\\', "/"));
+    }
+
+    Ok(())
+}
+
+fn should_skip_directory(name: &std::ffi::OsStr) -> bool {
+    match name.to_string_lossy().as_ref() {
+        ".git" | ".Vertical" | "node_modules" | "dist" | "target" => true,
+        _ => false,
+    }
+}
+
 fn registry_dir(root: &Path) -> PathBuf {
     root.join(PROJECT_STATE_DIR)
 }
@@ -499,9 +565,10 @@ fn read_json_file<T: for<'de> Deserialize<'de>>(path: &Path) -> Result<T, String
 #[cfg(test)]
 mod tests {
     use super::{
-        create_missing_companion_files, delete_project_state_at_path, load_workspace_state_from_root,
-        missing_companion_files, project_vertical_dir, save_workspace_state_to_root,
-        PersistedMessage, PersistedProject, PersistedSession, TextZoomState,
+        collect_project_files, create_missing_companion_files, delete_project_state_at_path,
+        load_workspace_state_from_root, missing_companion_files, project_vertical_dir,
+        save_workspace_state_to_root, PersistedMessage, PersistedProject, PersistedSession,
+        TextZoomState,
     };
     use std::env;
     use std::fs;
@@ -647,5 +714,35 @@ mod tests {
         assert_eq!(fs::read_to_string(root.join("CLAUDE.md")).unwrap(), "custom body");
         assert_eq!(fs::read_to_string(existing_path).unwrap(), "keep me");
         assert!(!root.join("GEMINI.md").exists());
+    }
+
+    #[test]
+    fn lists_relative_project_files_while_skipping_generated_directories() {
+        let root = temp_root();
+        fs::create_dir_all(root.join("src").join("nested")).unwrap();
+        fs::create_dir_all(root.join(".git")).unwrap();
+        fs::create_dir_all(root.join(".Vertical")).unwrap();
+        fs::create_dir_all(root.join("node_modules").join("pkg")).unwrap();
+        fs::create_dir_all(root.join("dist")).unwrap();
+        fs::create_dir_all(root.join("target")).unwrap();
+        fs::write(root.join("README.md"), "docs").unwrap();
+        fs::write(root.join("src").join("main.tsx"), "main").unwrap();
+        fs::write(root.join("src").join("nested").join("thing.test.ts"), "test").unwrap();
+        fs::write(root.join(".git").join("config"), "git").unwrap();
+        fs::write(root.join(".Vertical").join("project.json"), "{}").unwrap();
+        fs::write(root.join("node_modules").join("pkg").join("index.js"), "pkg").unwrap();
+        fs::write(root.join("dist").join("bundle.js"), "bundle").unwrap();
+        fs::write(root.join("target").join("app"), "app").unwrap();
+
+        let files = collect_project_files(&root).unwrap();
+
+        assert_eq!(
+            files,
+            vec![
+                "README.md".to_string(),
+                "src/main.tsx".to_string(),
+                "src/nested/thing.test.ts".to_string()
+            ]
+        );
     }
 }

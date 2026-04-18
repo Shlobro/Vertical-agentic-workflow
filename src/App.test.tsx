@@ -62,12 +62,14 @@ vi.mock("./components/InputBar", () => ({
   default: ({
     provider,
     model,
+    projectFilePaths,
     onProviderChange,
     onModelChange,
     onSend,
   }: {
     provider: string;
     model: string;
+    projectFilePaths: string[];
     onProviderChange: (provider: "claude" | "codex") => void;
     onModelChange: (model: string) => void;
     onSend: (text: string) => void;
@@ -75,6 +77,7 @@ vi.mock("./components/InputBar", () => ({
     <div data-testid="input-bar">
       <div data-testid="active-provider">{provider}</div>
       <div data-testid="active-model">{model}</div>
+      <div data-testid="project-file-count">{projectFilePaths.length}</div>
       <button onClick={() => onProviderChange("codex")}>Switch provider</button>
       <button onClick={() => onModelChange("gpt-5.4:high")}>Switch model</button>
       <button onClick={() => onSend("hello")}>Send</button>
@@ -108,6 +111,11 @@ describe("App", () => {
       }
       if (command === "load_project_state") {
         return null;
+      }
+      if (command === "list_project_files") {
+        return {
+          paths: [],
+        };
       }
       return undefined;
     });
@@ -198,6 +206,11 @@ describe("App", () => {
       }
       if (command === "load_project_state") {
         return null;
+      }
+      if (command === "list_project_files") {
+        return {
+          paths: [],
+        };
       }
       return undefined;
     });
@@ -332,6 +345,11 @@ describe("App", () => {
       }
       if (command === "load_project_state") {
         return null;
+      }
+      if (command === "list_project_files") {
+        return {
+          paths: [],
+        };
       }
       return undefined;
     });
@@ -803,6 +821,7 @@ describe("App", () => {
     vi.mocked(invoke).mockImplementation(async (command) => {
       if (command === "load_workspace_state") return workspaceState;
       if (command === "load_project_state") return null;
+      if (command === "list_project_files") return { paths: [] };
       return undefined;
     });
 
@@ -845,5 +864,52 @@ describe("App", () => {
         companionFileTemplate: null,
       });
     });
+  });
+
+  it("loads relative project file paths for the active project and passes them to the input bar", async () => {
+    const sessionId = crypto.randomUUID();
+    vi.mocked(invoke).mockImplementation(async (command) => {
+      if (command === "load_workspace_state") {
+        return {
+          projects: [{
+            id: "project-files",
+            title: "Alpha",
+            workingDir: "D:\\Projects\\Alpha",
+            collapsed: false,
+            lastActiveSessionId: sessionId,
+            sessions: [{
+              id: sessionId,
+              title: "Chat 1",
+              provider: "claude",
+              model: "claude-sonnet-4-6",
+              cliSessionId: "",
+              messages: [],
+              isStreaming: false,
+            }],
+          }],
+          activeSessionId: sessionId,
+          sidebarWidthRatio: null,
+          textZoom: null,
+          companionFileSelectionDefaults: null,
+          companionFileTemplate: null,
+        };
+      }
+      if (command === "list_project_files") {
+        return {
+          paths: ["README.md", "src/App.tsx"],
+        };
+      }
+      return undefined;
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(vi.mocked(invoke)).toHaveBeenCalledWith("list_project_files", {
+        workingDir: "D:\\Projects\\Alpha",
+      });
+    });
+
+    expect(screen.getByTestId("project-file-count").textContent).toBe("2");
   });
 });

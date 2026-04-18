@@ -67,6 +67,10 @@ interface CompanionDialogState {
   isEditingTemplate: boolean;
 }
 
+interface ProjectFileList {
+  paths: string[];
+}
+
 export default function App() {
   const store = useChatStore();
   const activeSession = store.activeSession();
@@ -92,6 +96,7 @@ export default function App() {
     useState<CompanionFileName[]>(COMPANION_FILE_NAMES);
   const [rememberedCompanionFileTemplate, setRememberedCompanionFileTemplate] = useState<string | null>(null);
   const [companionDialogState, setCompanionDialogState] = useState<CompanionDialogState | null>(null);
+  const [projectFilePaths, setProjectFilePaths] = useState<string[]>([]);
   const sidebarResizeRef = useRef({ startX: 0, startWidth: DEFAULT_SIDEBAR_WIDTH });
   const sidebarWidthRatioRef = useRef(getSidebarWidthRatio(DEFAULT_SIDEBAR_WIDTH));
   const textZoomRef = useRef<TextZoomState>(DEFAULT_TEXT_ZOOM);
@@ -114,6 +119,38 @@ export default function App() {
   useEffect(() => {
     rememberedCompanionFileTemplateRef.current = rememberedCompanionFileTemplate;
   }, [rememberedCompanionFileTemplate]);
+
+  useEffect(() => {
+    const activeWorkingDir = activeProject?.workingDir;
+    if (!activeWorkingDir) {
+      setProjectFilePaths([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadProjectFiles = async () => {
+      try {
+        const result = await invoke<ProjectFileList>("list_project_files", {
+          workingDir: activeWorkingDir,
+        });
+        if (!cancelled) {
+          setProjectFilePaths(result?.paths ?? []);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setProjectFilePaths([]);
+        }
+        console.error("Failed to load project file list", error);
+      }
+    };
+
+    void loadProjectFiles();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeProject?.workingDir]);
 
   function handleProviderChange(nextProvider: Provider) {
     const nextModel = DEFAULT_MODELS[nextProvider];
@@ -678,6 +715,7 @@ export default function App() {
               streaming={activeSession.isStreaming}
               provider={activeSession.provider}
               model={activeSession.model}
+              projectFilePaths={projectFilePaths}
               onProviderChange={handleProviderChange}
               onModelChange={handleModelChange}
               onSend={handleSend}

@@ -10,8 +10,8 @@
 - `ChatView.tsx`: Transcript area plus no-session and no-message empty states. Accepts `highlightQuery` and `scrollToMessageId`, and renders transcript typography from the shared chat text-zoom variables.
 - `MessageBubble.tsx`: Animated user and assistant message card. Reads `message.provider` directly to show the correct provider logo per bubble, renders a collapsible block for `isContextHandoff` messages, shows a spinning provider logo while the assistant message is streaming but empty, and applies the chat text-zoom typography classes to both normal bubbles and handoff content.
 - `ProviderSwitchDialog.tsx`: Modal warning shown when the user selects a different provider on a session that already has messages. Presents "Yes, switch" / "Cancel" options. Always shown until an app-settings screen exists.
-- `InputBar.tsx`: Textarea on top, bottom-right toolbar row with provider/model selector and send/cancel controls, and no extra instructional footer copy. It only renders when a chat is selected and uses the shell-provided composer text-zoom variables for both the textarea and compact controls.
-- `InputBar.test.tsx`: Coverage for keyboard submission, accessible labelling, cancel-state controls, and the absence of a working-directory button.
+- `InputBar.tsx`: Textarea on top, bottom-right toolbar row with provider/model selector and send/cancel controls, and no extra instructional footer copy. It only renders when a chat is selected, uses the shell-provided composer text-zoom variables for both the textarea and compact controls, and provides `@` file-path completion with arrow-key navigation plus `Tab` insertion. Accepted completions append a trailing space so typing can continue immediately. The suggestion list flips above the composer when the viewport does not have enough space below it.
+- `InputBar.test.tsx`: Coverage for keyboard submission, accessible labelling, cancel-state controls, the absence of a working-directory button, and `@` file mention completion.
 - `ConfirmDialog.test.tsx`: Coverage for themed destructive-confirmation rendering and button wiring.
 - `MissingCompanionFilesDialog.test.tsx`: Coverage for the companion-file checklist rendering, checkbox wiring, shared-template editor actions, and action buttons.
 - `Sidebar.test.tsx`: Coverage for project collapse, project rename, nested chat creation, chat action wiring, per-session provider icon rendering, the resize handle contract, and the search bar.
@@ -22,5 +22,7 @@
 - New shared UI elements should enter this folder only if they are used by more than one screen or keep `App.tsx` simpler.
 - Preserve message rendering as plain text unless the product intentionally adopts markdown or rich content.
 - Keep icon-only controls labelled for assistive technology, and prefer tests that cover keyboard behavior when changing input affordances such as inline rename inputs, collapse toggles, and action menus.
+- Keep composer mention behavior keyboard-first. `ArrowUp` and `ArrowDown` should move the highlighted file suggestion, while `Tab` should insert the highlighted relative path followed by a trailing space into the textarea.
+- Keep composer mention popovers viewport-aware. If the composer is near the bottom edge, the file suggestion list should render above it instead of overflowing off-screen.
 - Destructive confirmations should prefer themed in-app UI over native system prompts when they are part of the main shell flow.
 - Post-selection project setup prompts should also stay in themed in-app UI so multi-step folder onboarding remains testable and visually consistent.

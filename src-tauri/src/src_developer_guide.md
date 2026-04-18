@@ -13,6 +13,7 @@
 - Keep `lib.rs` small and declarative.
 - Keep filesystem persistence in `commands/`, not in provider modules or frontend code. Workspace-level UI preferences that must survive restarts should persist through the same command layer, preferably as stable normalized values such as ratios or rem sizes instead of window-size-specific pixels.
 - Repo-root file inspection and creation for project onboarding also belong in `commands/` so the frontend remains declarative and testable.
+- Project-root file indexing for composer `@` completion also belongs in `commands/` so the frontend receives normalized relative paths instead of traversing the filesystem itself.
 - Put provider branching behind `commands/` and `providers/`, not in unrelated modules.
 - Treat provider process lifecycle and stdout/stderr parsing as fragile integration code: small, explicit helpers are easier to maintain than large generic abstractions.
 - Keep Rust-side integration coverage close to command builders and persistence helpers so CLI or schema regressions fail under `cargo test`.
