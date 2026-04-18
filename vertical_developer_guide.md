@@ -25,7 +25,7 @@ Vertical is a desktop chat client built with Tauri, React, TypeScript, and Rust.
 
 ## Current Frontend Shape
 - The layout is a fixed two-column shell: project and chat controls on the left, conversation on the right.
-- Each sidebar project row exposes a collapse arrow, folder icon, persistent new-chat button, and actions menu for inline rename plus delete. Chat rows keep their own rename and delete menu.
+- Each sidebar project row exposes a collapse arrow, folder icon, persistent new-chat button, and actions menu for inline rename plus delete. Chat rows show the session provider icon and keep their own rename and delete menu.
 - `ChatView` handles three empty states: no active session, active session with no messages, and active session with transcript.
 - `MessageBubble` animates message entry and uses a typing indicator while the assistant placeholder is still empty.
 - `InputBar` handles enter-to-send, shift-enter newline, textarea auto-growth, provider/model selection, and cancellation of the active provider request. It stays hidden until a chat is selected.

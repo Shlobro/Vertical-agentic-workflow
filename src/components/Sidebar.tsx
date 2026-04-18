@@ -4,12 +4,12 @@ import {
   Ellipsis,
   Folder,
   MessageCirclePlus,
-  MessageSquare,
   Pencil,
   Plus,
   Trash2,
 } from "lucide-react";
 import { ChatProject, ChatSession } from "../types";
+import { PROVIDER_ICONS } from "../assets/providerIcons";
 
 interface Props {
   projects: ChatProject[];
@@ -252,7 +252,11 @@ export default function Sidebar({
                               onClick={() => onSelectSession(session.id)}
                               className="flex flex-1 min-w-0 items-center gap-2 px-3 py-2 text-left"
                             >
-                              <MessageSquare size={13} className="flex-shrink-0" />
+                              <img
+                                src={PROVIDER_ICONS[session.provider]}
+                                alt={`${session.provider} provider`}
+                                className="h-[13px] w-[13px] flex-shrink-0 object-contain opacity-85"
+                              />
                               <span className="truncate flex-1">{session.title}</span>
                               {session.isStreaming && (
                                 <span className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0 animate-pulse" />

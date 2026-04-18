@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import Sidebar from "./Sidebar";
 import { ChatProject } from "../types";
+import { PROVIDER_ICONS } from "../assets/providerIcons";
 
 const projects: ChatProject[] = [
   {
@@ -141,5 +142,25 @@ describe("Sidebar", () => {
     fireEvent.click(screen.getByRole("button", { name: "Collapse Alpha" }));
 
     expect(onToggleProject).toHaveBeenCalledWith("project-1");
+  });
+
+  it("shows each chat's provider icon in the session row", () => {
+    render(
+      <Sidebar
+        projects={projects}
+        activeSessionId="session-2"
+        onNewProject={vi.fn()}
+        onNewChat={vi.fn()}
+        onToggleProject={vi.fn()}
+        onSelectSession={vi.fn()}
+        onRenameProject={vi.fn()}
+        onDeleteProject={vi.fn()}
+        onRenameSession={vi.fn()}
+        onDeleteSession={vi.fn()}
+      />
+    );
+
+    expect(screen.getByAltText("claude provider").getAttribute("src")).toBe(PROVIDER_ICONS.claude);
+    expect(screen.getByAltText("codex provider").getAttribute("src")).toBe(PROVIDER_ICONS.codex);
   });
 });

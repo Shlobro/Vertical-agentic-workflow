@@ -4,7 +4,7 @@
 `src/assets/` stores frontend-imported static assets that are bundled by Vite.
 
 ## Current Scope
-- Provider logos for sidebar buttons.
+- Provider logos and the shared `providerIcons.ts` lookup used by chat-selection UI.
 - Default scaffold assets that should be removed once unused.
 
 ## Guardrails

@@ -10,7 +10,7 @@
 - `store/`: Zustand state container for sessions and message streaming.
 - `types/`: Shared frontend data contracts, event payloads, and provider/model definitions.
 - `styles/`: Tailwind v4 import and theme tokens.
-- `assets/`: Imported frontend image assets such as provider logos.
+- `assets/`: Imported frontend image assets plus the shared provider-icon lookup used by multiple components.
 
 ## Frontend Data Flow
 1. `App.tsx` reads the Zustand store and derives the active session through `activeSession()`.

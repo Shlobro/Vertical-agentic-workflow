@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-04-18
+- Replaced the generic sidebar chat icon with the selected provider icon for each chat row and shared the provider icon mapping across sidebar and composer UI.
 - Fixed active chat provider/model selection so sending from a session uses the configuration shown in the input bar instead of stale session settings.
 - Clearing a chat's provider/model now resets its saved CLI session id to avoid resuming an incompatible provider thread.
 - Added frontend tests covering session config updates and the send path after switching to Codex.

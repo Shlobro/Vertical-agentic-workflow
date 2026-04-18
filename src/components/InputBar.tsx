@@ -1,13 +1,7 @@
 import { useRef, useState, useEffect, KeyboardEvent } from "react";
 import { Send, Square, ChevronDown, Check } from "lucide-react";
 import { Provider, PROVIDERS, MODELS } from "../types";
-import claudeLogo from "../assets/claude_logo.png";
-import openaiLogo from "../assets/openai_logo.png";
-
-const LOGOS: Record<Provider, string> = {
-  claude: claudeLogo,
-  codex: openaiLogo,
-};
+import { PROVIDER_ICONS } from "../assets/providerIcons";
 
 interface Props {
   streaming: boolean;
@@ -104,7 +98,7 @@ export default function InputBar({
               className="group flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-text-muted transition-all hover:bg-surface-hover hover:text-text-primary"
             >
               <img
-                src={LOGOS[provider]}
+                src={PROVIDER_ICONS[provider]}
                 alt={provider}
                 className="h-4 w-4 object-contain opacity-80 transition-opacity group-hover:opacity-100"
               />
@@ -125,7 +119,11 @@ export default function InputBar({
                           : "text-text-muted hover:bg-surface-hover hover:text-text-primary"
                       }`}
                     >
-                      <img src={LOGOS[item.id]} alt={item.label} className="h-3.5 w-3.5 object-contain" />
+                      <img
+                        src={PROVIDER_ICONS[item.id]}
+                        alt={item.label}
+                        className="h-3.5 w-3.5 object-contain"
+                      />
                       {item.id === "claude" ? "Claude" : "OpenAI"}
                     </button>
                   ))}
