@@ -1,12 +1,14 @@
 import { motion } from "framer-motion";
-import { Message } from "../types";
+import { Message, Provider } from "../types";
+import { PROVIDER_ICONS } from "../assets/providerIcons";
 
 interface Props {
   message: Message;
   highlightQuery?: string;
+  provider?: Provider;
 }
 
-export default function MessageBubble({ message, highlightQuery }: Props) {
+export default function MessageBubble({ message, highlightQuery, provider }: Props) {
   const isUser = message.role === "user";
 
   return (
@@ -16,6 +18,13 @@ export default function MessageBubble({ message, highlightQuery }: Props) {
       transition={{ duration: 0.2 }}
       className={`flex w-full ${isUser ? "justify-end" : "justify-start"} mb-3`}
     >
+      {!isUser && provider && (
+        <img
+          src={PROVIDER_ICONS[provider]}
+          alt={`${provider} provider`}
+          className="w-4 h-4 object-contain opacity-70 flex-shrink-0 mt-3 mr-2 self-start"
+        />
+      )}
       <div
         className={`
           max-w-[70%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap select-text
@@ -26,7 +35,7 @@ export default function MessageBubble({ message, highlightQuery }: Props) {
         `}
       >
         {message.streaming && !message.text ? (
-          <TypingIndicator />
+          provider ? <ProviderSpinner provider={provider} /> : <TypingIndicator />
         ) : (
           <>
             {highlightQuery
@@ -64,6 +73,21 @@ function renderHighlighted(text: string, query: string) {
 
 function escapeRegex(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function ProviderSpinner({ provider }: { provider: Provider }) {
+  return (
+    <div className="flex items-center justify-center h-5 w-5">
+      <motion.img
+        src={PROVIDER_ICONS[provider]}
+        alt=""
+        aria-hidden="true"
+        className="w-5 h-5 object-contain"
+        animate={{ rotate: 360 }}
+        transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
+      />
+    </div>
+  );
 }
 
 function TypingIndicator() {

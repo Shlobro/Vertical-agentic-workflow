@@ -1,4 +1,5 @@
 import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
 import {
   ChevronRight,
   Ellipsis,
@@ -507,19 +508,26 @@ export default function Sidebar({
                               onClick={() => handleSessionClick(session.id, lastMatchingMessageId)}
                               className="flex flex-1 min-w-0 items-center gap-2 px-3 py-2 text-left"
                             >
-                              <img
-                                src={PROVIDER_ICONS[session.provider]}
-                                alt={`${session.provider} provider`}
-                                className="h-[13px] w-[13px] flex-shrink-0 object-contain opacity-85"
-                              />
+                              {session.isStreaming ? (
+                                <motion.img
+                                  src={PROVIDER_ICONS[session.provider]}
+                                  alt={`${session.provider} provider`}
+                                  className="h-[13px] w-[13px] flex-shrink-0 object-contain opacity-85"
+                                  animate={{ rotate: 360 }}
+                                  transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
+                                />
+                              ) : (
+                                <img
+                                  src={PROVIDER_ICONS[session.provider]}
+                                  alt={`${session.provider} provider`}
+                                  className="h-[13px] w-[13px] flex-shrink-0 object-contain opacity-85"
+                                />
+                              )}
                               <span className="truncate flex-1">
                                 {titleMatches
                                   ? highlightText(session.title, searchQuery)
                                   : session.title}
                               </span>
-                              {session.isStreaming && (
-                                <span className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0 animate-pulse" />
-                              )}
                             </button>
                           )}
 

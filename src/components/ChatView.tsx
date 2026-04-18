@@ -57,6 +57,7 @@ export default function ChatView({ session, highlightQuery, scrollToMessageId }:
           <MessageBubble
             message={msg}
             highlightQuery={highlightQuery}
+            provider={session.provider}
           />
         </div>
       ))}

@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- Replaced the green pulsing dot on active sidebar chat rows with a spinning provider logo while the chat is streaming. The logo returns to its static state when the stream ends.
+- Replaced the three-dot typing indicator with a spinning provider logo during the assistant thinking phase (streaming message with no text yet). The logo spins continuously at 20px and falls back to the dot indicator if no provider is supplied.
 - Added a live search bar next to the "New Project" button in the sidebar. A `⋯` button opens a dropdown with three checkboxes — Project names, Chat names, Chat contents — controlling what is searched. Default is project and chat names. If all boxes are unchecked the search silently falls back to project and chat names. Projects/chats with no match are hidden; a project name match reveals all its chats. Matching text in titles is highlighted with a yellow `<mark>`. Clicking a chat that matched on message content selects it and scrolls to the last matching message, highlighted with a yellow ring. Clearing search restores the prior collapsed state.
 - Added `onSearchSelectSession` prop to `Sidebar` for content-match navigation; added `highlightQuery` and `scrollToMessageId` props to `ChatView` and `MessageBubble` to drive in-chat highlighting and scroll-to-match behavior.
 - Added Sidebar tests covering project-name filter, chat-title filter, content scope toggle, no-results state, all-unchecked fallback, and search clear.
