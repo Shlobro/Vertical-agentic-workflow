@@ -99,12 +99,7 @@ export default function Sidebar({
 
   return (
     <div className="w-72 flex-shrink-0 flex flex-col bg-bg-sidebar border-r border-border h-full">
-      <div className="px-4 pt-5 pb-3">
-        <h1 className="text-lg font-bold text-text-primary tracking-tight">Vertical</h1>
-        <p className="text-xs text-text-muted mt-0.5">CLI Chat Interface</p>
-      </div>
-
-      <div className="px-3 pb-3 border-b border-border">
+      <div className="px-3 pt-5 pb-3 border-b border-border">
         <button
           onClick={() => void onNewProject()}
           className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors"

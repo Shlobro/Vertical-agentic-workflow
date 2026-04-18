@@ -169,7 +169,6 @@ export default function InputBar({
           )}
         </div>
       </div>
-      <p className="mt-1.5 text-center text-xs text-text-muted">Enter to send | Shift+Enter for newline</p>
     </div>
   );
 }

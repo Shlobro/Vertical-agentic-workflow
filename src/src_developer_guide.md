@@ -15,7 +15,7 @@
 ## Frontend Data Flow
 1. `App.tsx` loads persisted workspace state through `load_workspace_state`, then reads the Zustand store and derives the active session through `activeSession()`.
 2. UI events call store actions directly for local state changes.
-3. `Sidebar.tsx` owns project-tree presentation details such as inline rename fields, collapse controls, and nested chat actions, while `App.tsx` owns destructive confirmation state and renders the themed confirmation dialog before calling store delete actions.
+3. `Sidebar.tsx` owns project-tree presentation details such as inline rename fields, collapse controls, nested chat actions, and the top-of-sidebar project action area, while `App.tsx` owns destructive confirmation state and renders the themed confirmation dialog before calling store delete actions.
 4. Choosing `New project` opens the folder picker first. If the chosen folder already contains `.Vertical` state, `App.tsx` loads it through `load_project_state`; otherwise the store creates a project named after that folder plus one empty chat inside it.
 5. The active chat session owns the selected provider and model shown in `InputBar`. Changing either updates that session immediately and clears its saved CLI session id when the configuration changes.
 6. Sending a prompt writes optimistic user and assistant messages before calling Tauri with the selected chat and its parent project's working directory.

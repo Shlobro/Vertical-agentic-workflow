@@ -1,6 +1,8 @@
 # Changelog
 
 ## 2026-04-18
+- Removed the remaining top-left `Vertical` title so the sidebar now starts directly with the `New Project` action.
+- Simplified the chat shell chrome by removing the sidebar subtitle and the composer keyboard-hint footer text.
 - Added local project persistence with `.Vertical/project.json` plus one JSON file per chat under `.Vertical/chats/` inside each project working directory.
 - Added an executable-adjacent `.Vertical/registry.json` that tracks known project folders and the last active project so startup can restore saved work.
 - Added startup workspace hydration, folder-level project loading, and debounced autosave for projects, chats, provider/model settings, CLI session ids, and last-selected chats.
