@@ -1,3 +1,4 @@
+import type { ComponentProps } from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import Sidebar from "./Sidebar";
@@ -48,23 +49,31 @@ describe("Sidebar", () => {
     cleanup();
   });
 
-  it("renames a project from the actions menu", () => {
-    const onRenameProject = vi.fn();
-
-    render(
+  function renderSidebar(overrides: Partial<ComponentProps<typeof Sidebar>> = {}) {
+    return render(
       <Sidebar
+        width={288}
+        isResizing={false}
+        onResizeStart={vi.fn()}
         projects={projects}
         activeSessionId="session-2"
         onNewProject={vi.fn()}
         onNewChat={vi.fn()}
         onToggleProject={vi.fn()}
         onSelectSession={vi.fn()}
-        onRenameProject={onRenameProject}
+        onRenameProject={vi.fn()}
         onDeleteProject={vi.fn()}
         onRenameSession={vi.fn()}
         onDeleteSession={vi.fn()}
+        {...overrides}
       />
     );
+  }
+
+  it("renames a project from the actions menu", () => {
+    const onRenameProject = vi.fn();
+
+    renderSidebar({ onRenameProject });
 
     fireEvent.click(screen.getByRole("button", { name: "Open actions for project Beta" }));
     fireEvent.click(screen.getByRole("button", { name: "Rename project" }));
@@ -79,20 +88,7 @@ describe("Sidebar", () => {
   it("creates a new chat inside a project", () => {
     const onNewChat = vi.fn();
 
-    render(
-      <Sidebar
-        projects={projects}
-        activeSessionId="session-1"
-        onNewProject={vi.fn()}
-        onNewChat={onNewChat}
-        onToggleProject={vi.fn()}
-        onSelectSession={vi.fn()}
-        onRenameProject={vi.fn()}
-        onDeleteProject={vi.fn()}
-        onRenameSession={vi.fn()}
-        onDeleteSession={vi.fn()}
-      />
-    );
+    renderSidebar({ activeSessionId: "session-1", onNewChat });
 
     fireEvent.click(screen.getByRole("button", { name: "New chat in Alpha" }));
 
@@ -102,20 +98,7 @@ describe("Sidebar", () => {
   it("deletes a chat from the chat actions menu", () => {
     const onDeleteSession = vi.fn();
 
-    render(
-      <Sidebar
-        projects={projects}
-        activeSessionId="session-1"
-        onNewProject={vi.fn()}
-        onNewChat={vi.fn()}
-        onToggleProject={vi.fn()}
-        onSelectSession={vi.fn()}
-        onRenameProject={vi.fn()}
-        onDeleteProject={vi.fn()}
-        onRenameSession={vi.fn()}
-        onDeleteSession={onDeleteSession}
-      />
-    );
+    renderSidebar({ activeSessionId: "session-1", onDeleteSession });
 
     fireEvent.click(screen.getByRole("button", { name: "Open actions for First chat" }));
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
@@ -126,20 +109,7 @@ describe("Sidebar", () => {
   it("toggles a project collapse button", () => {
     const onToggleProject = vi.fn();
 
-    render(
-      <Sidebar
-        projects={projects}
-        activeSessionId="session-1"
-        onNewProject={vi.fn()}
-        onNewChat={vi.fn()}
-        onToggleProject={onToggleProject}
-        onSelectSession={vi.fn()}
-        onRenameProject={vi.fn()}
-        onDeleteProject={vi.fn()}
-        onRenameSession={vi.fn()}
-        onDeleteSession={vi.fn()}
-      />
-    );
+    renderSidebar({ activeSessionId: "session-1", onToggleProject });
 
     fireEvent.click(screen.getByRole("button", { name: "Collapse Alpha" }));
 
@@ -147,22 +117,23 @@ describe("Sidebar", () => {
   });
 
   it("shows each chat's provider icon in the session row", () => {
-    render(
-      <Sidebar
-        projects={projects}
-        activeSessionId="session-2"
-        onNewProject={vi.fn()}
-        onNewChat={vi.fn()}
-        onToggleProject={vi.fn()}
-        onSelectSession={vi.fn()}
-        onRenameProject={vi.fn()}
-        onDeleteProject={vi.fn()}
-        onRenameSession={vi.fn()}
-        onDeleteSession={vi.fn()}
-      />
-    );
+    renderSidebar();
 
     expect(screen.getByAltText("claude provider").getAttribute("src")).toBe(PROVIDER_ICONS.claude);
     expect(screen.getByAltText("codex provider").getAttribute("src")).toBe(PROVIDER_ICONS.codex);
+  });
+
+  it("applies the supplied width and exposes a resize handle", () => {
+    const onResizeStart = vi.fn();
+    const { container } = renderSidebar({ width: 344, onResizeStart });
+
+    expect((container.firstChild as HTMLElement).style.width).toBe("344px");
+
+    const handle = screen.getByRole("separator", { name: "Resize sidebar" });
+    expect(handle.className).toContain("cursor-col-resize");
+
+    fireEvent.mouseDown(handle, { clientX: 344 });
+
+    expect(onResizeStart).toHaveBeenCalledTimes(1);
   });
 });

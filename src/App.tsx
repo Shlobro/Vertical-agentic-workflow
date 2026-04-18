@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { MouseEvent as ReactMouseEvent, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -22,6 +22,10 @@ type PendingDelete =
   | { kind: "session"; id: string }
   | null;
 
+const DEFAULT_SIDEBAR_WIDTH = 288;
+const MIN_SIDEBAR_WIDTH = 240;
+const MAX_SIDEBAR_WIDTH_RATIO = 0.75;
+
 export default function App() {
   const store = useChatStore();
   const activeSession = store.activeSession();
@@ -32,6 +36,14 @@ export default function App() {
   const [defaultProvider, setDefaultProvider] = useState<Provider>("claude");
   const [defaultModel, setDefaultModel] = useState(MODELS.claude[0].id);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete>(null);
+  const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
+  const [isResizingSidebar, setIsResizingSidebar] = useState(false);
+  const sidebarResizeRef = useRef({ startX: 0, startWidth: DEFAULT_SIDEBAR_WIDTH });
+  const sidebarWidthRatioRef = useRef(getSidebarWidthRatio(DEFAULT_SIDEBAR_WIDTH));
+
+  useEffect(() => {
+    sidebarWidthRatioRef.current = getSidebarWidthRatio(sidebarWidth);
+  }, [sidebarWidth]);
 
   function handleProviderChange(nextProvider: Provider) {
     const nextModel = MODELS[nextProvider][0].id;
@@ -54,6 +66,11 @@ export default function App() {
       try {
         const state = await invoke<PersistedWorkspaceState>("load_workspace_state");
         store.hydrateWorkspace(state);
+        if (typeof state.sidebarWidthRatio === "number") {
+          const nextWidth = getSidebarWidthFromRatio(state.sidebarWidthRatio);
+          setSidebarWidth(nextWidth);
+          sidebarWidthRatioRef.current = getSidebarWidthRatio(nextWidth);
+        }
       } catch (error) {
         console.error("Failed to load persisted workspace state", error);
       } finally {
@@ -92,6 +109,16 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const saveWorkspaceState = (sidebarWidthRatio: number) => {
+      invoke("save_workspace_state", {
+        projects: useChatStore.getState().projects,
+        activeSessionId: useChatStore.getState().activeSessionId,
+        sidebarWidthRatio,
+      }).catch((error) => {
+        console.error("Failed to save workspace state", error);
+      });
+    };
+
     const unsubscribe = useChatStore.subscribe((state, previousState) => {
       if (!hydrationCompleteRef.current) return;
       if (state.projects === previousState.projects && state.activeSessionId === previousState.activeSessionId) {
@@ -103,12 +130,7 @@ export default function App() {
       }
 
       saveTimerRef.current = setTimeout(() => {
-        invoke("save_workspace_state", {
-          projects: useChatStore.getState().projects,
-          activeSessionId: useChatStore.getState().activeSessionId,
-        }).catch((error) => {
-          console.error("Failed to save workspace state", error);
-        });
+        saveWorkspaceState(sidebarWidthRatioRef.current);
       }, 150);
     });
 
@@ -117,6 +139,67 @@ export default function App() {
       if (saveTimerRef.current) {
         clearTimeout(saveTimerRef.current);
       }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hydrationCompleteRef.current) return;
+
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+    }
+
+    saveTimerRef.current = setTimeout(() => {
+      invoke("save_workspace_state", {
+        projects: useChatStore.getState().projects,
+        activeSessionId: useChatStore.getState().activeSessionId,
+        sidebarWidthRatio: sidebarWidthRatioRef.current,
+      }).catch((error) => {
+        console.error("Failed to save workspace state", error);
+      });
+    }, 150);
+  }, [sidebarWidth]);
+
+  useEffect(() => {
+    if (!isResizingSidebar) return;
+
+    const handleMouseMove = (event: MouseEvent) => {
+      const delta = event.clientX - sidebarResizeRef.current.startX;
+      const maxSidebarWidth = getMaxSidebarWidth();
+      const nextWidth = clamp(
+        sidebarResizeRef.current.startWidth + delta,
+        MIN_SIDEBAR_WIDTH,
+        maxSidebarWidth,
+      );
+      setSidebarWidth(nextWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizingSidebar(false);
+    };
+
+    document.body.style.cursor = "ew-resize";
+    document.body.style.userSelect = "none";
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isResizingSidebar]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setSidebarWidth(getSidebarWidthFromRatio(sidebarWidthRatioRef.current));
+    };
+
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
     };
   }, []);
 
@@ -155,6 +238,15 @@ export default function App() {
 
   function handleDeleteChat(sessionId: string) {
     setPendingDelete({ kind: "session", id: sessionId });
+  }
+
+  function handleSidebarResizeStart(event: ReactMouseEvent<HTMLDivElement>) {
+    event.preventDefault();
+    sidebarResizeRef.current = {
+      startX: event.clientX,
+      startWidth: sidebarWidth,
+    };
+    setIsResizingSidebar(true);
   }
 
   async function handleConfirmDelete() {
@@ -243,6 +335,9 @@ export default function App() {
   return (
     <div className="flex h-screen overflow-hidden bg-bg-primary text-text-primary">
       <Sidebar
+        width={sidebarWidth}
+        isResizing={isResizingSidebar}
+        onResizeStart={handleSidebarResizeStart}
         projects={store.projects}
         activeSessionId={store.activeSessionId}
         onNewProject={handleNewProject}
@@ -289,4 +384,24 @@ export default function App() {
 
 function formatError(error: unknown) {
   return error instanceof Error ? error.message : String(error);
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function getMaxSidebarWidth() {
+  return Math.max(MIN_SIDEBAR_WIDTH, Math.floor(window.innerWidth * MAX_SIDEBAR_WIDTH_RATIO));
+}
+
+function getSidebarWidthRatio(width: number) {
+  if (window.innerWidth <= 0) {
+    return MAX_SIDEBAR_WIDTH_RATIO;
+  }
+
+  return clamp(width / window.innerWidth, MIN_SIDEBAR_WIDTH / window.innerWidth, MAX_SIDEBAR_WIDTH_RATIO);
+}
+
+function getSidebarWidthFromRatio(ratio: number) {
+  return clamp(Math.round(window.innerWidth * ratio), MIN_SIDEBAR_WIDTH, getMaxSidebarWidth());
 }

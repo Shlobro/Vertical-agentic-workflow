@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+- Added a draggable left-sidebar resize handle with `ew-resize` cursor feedback and bounded width updates in the app shell.
+- Added frontend tests covering the sidebar resize handle contract and drag-based width changes.
+- Adjusted the sidebar resize affordance so its hit area and visual guide align with the actual border, and switched the hover cursor to `col-resize`.
+- Increased the sidebar expansion limit from a fixed width to 75% of the current viewport width.
+- Persisted the sidebar width in workspace state so resizing survives app restarts.
+- Changed sidebar persistence from raw pixels to a viewport ratio so the sidebar keeps the same percentage when the window is resized or maximized.
+
 ## 2026-04-18
 - Removed the remaining top-left `Vertical` title so the sidebar now starts directly with the `New Project` action.
 - Simplified the chat shell chrome by removing the sidebar subtitle and the composer keyboard-hint footer text.

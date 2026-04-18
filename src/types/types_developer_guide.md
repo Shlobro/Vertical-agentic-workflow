@@ -6,6 +6,7 @@
 ## Current Scope
 - `index.ts`: Provider union, message/session/project interfaces, persisted workspace payloads, Tauri event payloads, provider catalog, and model catalog used by the UI.
 - `ChatProject` carries `lastActiveSessionId` so the app can reopen the latest chat per project after reloading from disk.
+- `PersistedWorkspaceState` also carries `sidebarWidthRatio` so shell-level layout state survives app restarts and scales proportionally with future window-size changes.
 - The OpenAI/Codex catalog currently exposes GPT-5.4 and GPT-5.3 Codex entries with reasoning-effort variants encoded as `model:effort`.
 
 ## Guardrails

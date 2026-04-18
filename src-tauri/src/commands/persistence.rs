@@ -14,6 +14,7 @@ const REGISTRY_FILE_NAME: &str = "registry.json";
 pub struct PersistedWorkspaceState {
     pub projects: Vec<PersistedProject>,
     pub active_session_id: Option<String>,
+    pub sidebar_width_ratio: Option<f64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -54,6 +55,7 @@ struct RegistryFile {
     version: u32,
     project_paths: Vec<String>,
     active_project_path: Option<String>,
+    sidebar_width_ratio: Option<f64>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -84,7 +86,12 @@ struct ChatFile {
 pub fn load_workspace_state() -> Result<PersistedWorkspaceState, String> {
     let root = executable_storage_root()?;
     let state = load_workspace_state_from_root(&root)?;
-    save_registry_file(&root, &state.projects, &state.active_session_id)?;
+    save_registry_file(
+        &root,
+        &state.projects,
+        &state.active_session_id,
+        state.sidebar_width_ratio,
+    )?;
     Ok(state)
 }
 
@@ -97,9 +104,15 @@ pub fn load_project_state(working_dir: String) -> Result<Option<PersistedProject
 pub fn save_workspace_state(
     projects: Vec<PersistedProject>,
     active_session_id: Option<String>,
+    sidebar_width_ratio: Option<f64>,
 ) -> Result<(), String> {
     let root = executable_storage_root()?;
-    save_workspace_state_to_root(&root, &projects, active_session_id.as_deref())
+    save_workspace_state_to_root(
+        &root,
+        &projects,
+        active_session_id.as_deref(),
+        sidebar_width_ratio,
+    )
 }
 
 #[tauri::command]
@@ -151,6 +164,7 @@ fn load_workspace_state_from_root(root: &Path) -> Result<PersistedWorkspaceState
     Ok(PersistedWorkspaceState {
         projects,
         active_session_id,
+        sidebar_width_ratio: registry.sidebar_width_ratio,
     })
 }
 
@@ -158,18 +172,25 @@ fn save_workspace_state_to_root(
     root: &Path,
     projects: &[PersistedProject],
     active_session_id: Option<&str>,
+    sidebar_width_ratio: Option<f64>,
 ) -> Result<(), String> {
     for project in projects {
         save_project(project, active_session_id)?;
     }
 
-    save_registry_file(root, projects, &active_session_id.map(str::to_string))
+    save_registry_file(
+        root,
+        projects,
+        &active_session_id.map(str::to_string),
+        sidebar_width_ratio,
+    )
 }
 
 fn save_registry_file(
     root: &Path,
     projects: &[PersistedProject],
     active_session_id: &Option<String>,
+    sidebar_width_ratio: Option<f64>,
 ) -> Result<(), String> {
     let registry_dir = registry_dir(root);
     fs::create_dir_all(&registry_dir)
@@ -183,6 +204,7 @@ fn save_registry_file(
         version: REGISTRY_VERSION,
         project_paths: projects.iter().map(|project| project.working_dir.clone()).collect(),
         active_project_path,
+        sidebar_width_ratio,
     };
 
     write_json_file(&registry_dir.join(REGISTRY_FILE_NAME), &registry)
@@ -311,6 +333,7 @@ fn load_registry_file(root: &Path) -> Result<RegistryFile, String> {
             version: REGISTRY_VERSION,
             project_paths: Vec::new(),
             active_project_path: None,
+            sidebar_width_ratio: None,
         });
     }
 
@@ -428,13 +451,14 @@ mod tests {
         fs::create_dir_all(&project_root).unwrap();
         let project = sample_project(&project_root);
 
-        save_workspace_state_to_root(&root, &[project], Some("session-2")).unwrap();
+        save_workspace_state_to_root(&root, &[project], Some("session-2"), Some(0.512)).unwrap();
         let loaded = load_workspace_state_from_root(&root).unwrap();
 
         assert_eq!(loaded.projects.len(), 1);
         assert_eq!(loaded.projects[0].sessions.len(), 2);
         assert_eq!(loaded.active_session_id.as_deref(), Some("session-2"));
         assert_eq!(loaded.projects[0].sessions[0].id, "session-1");
+        assert_eq!(loaded.sidebar_width_ratio, Some(0.512));
     }
 
     #[test]
@@ -444,9 +468,9 @@ mod tests {
         fs::create_dir_all(&project_root).unwrap();
         let mut project = sample_project(&project_root);
 
-        save_workspace_state_to_root(&root, &[project.clone()], Some("session-1")).unwrap();
+        save_workspace_state_to_root(&root, &[project.clone()], Some("session-1"), Some(0.32)).unwrap();
         project.sessions.pop();
-        save_workspace_state_to_root(&root, &[project], Some("session-1")).unwrap();
+        save_workspace_state_to_root(&root, &[project], Some("session-1"), Some(0.32)).unwrap();
 
         let stale_chat_path = project_vertical_dir(&project_root).join("chats").join("session-2.json");
         assert!(!stale_chat_path.exists());
@@ -459,7 +483,7 @@ mod tests {
         fs::create_dir_all(&project_root).unwrap();
         let project = sample_project(&project_root);
 
-        save_workspace_state_to_root(&root, &[project], Some("session-1")).unwrap();
+        save_workspace_state_to_root(&root, &[project], Some("session-1"), Some(0.32)).unwrap();
         delete_project_state_at_path(&project_root).unwrap();
 
         assert!(!project_vertical_dir(&project_root).exists());

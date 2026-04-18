@@ -1,3 +1,4 @@
+import type { MouseEvent as ReactMouseEvent } from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
@@ -21,17 +22,23 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
 
 vi.mock("./components/Sidebar", () => ({
   default: ({
+    width,
+    onResizeStart,
     projects,
     onNewProject,
     onDeleteProject,
     onDeleteSession,
   }: {
+    width: number;
+    onResizeStart: (event: ReactMouseEvent<HTMLDivElement>) => void;
     projects: Array<{ id: string; title: string; sessions: Array<{ id: string; title: string }> }>;
     onNewProject: () => void | Promise<void>;
     onDeleteProject: (id: string) => void;
     onDeleteSession: (id: string) => void;
   }) => (
     <div data-testid="sidebar">
+      <div data-testid="sidebar-width">{width}</div>
+      <div role="separator" aria-label="Resize sidebar" onMouseDown={onResizeStart} />
       <button onClick={() => void onNewProject()}>New project</button>
       {projects.map((project) => (
         <div key={project.id}>
@@ -88,6 +95,7 @@ describe("App", () => {
         return {
           projects: [],
           activeSessionId: null,
+          sidebarWidthRatio: null,
         };
       }
       if (command === "load_project_state") {
@@ -170,6 +178,7 @@ describe("App", () => {
         return {
           projects: [],
           activeSessionId: null,
+          sidebarWidthRatio: null,
         };
       }
       if (command === "load_project_state") {
@@ -201,6 +210,8 @@ describe("App", () => {
   });
 
   it("hydrates projects from persisted workspace state on startup", async () => {
+    window.innerWidth = 1000;
+
     const invokeMock = vi.mocked(invoke);
     invokeMock.mockImplementation(async (command) => {
       if (command === "load_workspace_state") {
@@ -226,6 +237,7 @@ describe("App", () => {
             },
           ],
           activeSessionId: "session-2",
+          sidebarWidthRatio: 0.412,
         };
       }
       if (command === "load_project_state") {
@@ -240,6 +252,68 @@ describe("App", () => {
       expect(useChatStore.getState().projects).toHaveLength(1);
       expect(useChatStore.getState().activeSessionId).toBe("session-2");
     });
+
+    expect(screen.getByTestId("sidebar-width").textContent).toBe("412");
+  });
+
+  it("updates the sidebar width while dragging the resize handle", async () => {
+    window.innerWidth = 1000;
+
+    render(<App />);
+
+    expect(screen.getByTestId("sidebar-width").textContent).toBe("288");
+
+    fireEvent.mouseDown(screen.getByRole("separator", { name: "Resize sidebar" }), { clientX: 288 });
+    fireEvent.mouseMove(window, { clientX: 360 });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("sidebar-width").textContent).toBe("360");
+    });
+
+    fireEvent.mouseMove(window, { clientX: 800 });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("sidebar-width").textContent).toBe("750");
+    });
+
+    fireEvent.mouseUp(window);
+
+    await waitFor(() => {
+      expect(vi.mocked(invoke)).toHaveBeenCalledWith("save_workspace_state", {
+        projects: useChatStore.getState().projects,
+        activeSessionId: useChatStore.getState().activeSessionId,
+        sidebarWidthRatio: 0.75,
+      });
+    });
+  });
+
+  it("keeps the same sidebar ratio when the window is resized", async () => {
+    window.innerWidth = 1000;
+
+    render(<App />);
+
+    fireEvent.mouseDown(screen.getByRole("separator", { name: "Resize sidebar" }), { clientX: 288 });
+    fireEvent.mouseMove(window, { clientX: 400 });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("sidebar-width").textContent).toBe("400");
+    });
+
+    window.innerWidth = 1500;
+    fireEvent(window, new Event("resize"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("sidebar-width").textContent).toBe("600");
+    });
+
+    window.innerWidth = 800;
+    fireEvent(window, new Event("resize"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("sidebar-width").textContent).toBe("320");
+    });
+
+    fireEvent.mouseUp(window);
   });
 
   it("loads an existing persisted project instead of creating a fresh one", async () => {
@@ -249,6 +323,7 @@ describe("App", () => {
         return {
           projects: [],
           activeSessionId: null,
+          sidebarWidthRatio: null,
         };
       }
       if (command === "load_project_state") {

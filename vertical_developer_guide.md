@@ -15,17 +15,17 @@ Vertical is a desktop chat client built with Tauri, React, TypeScript, and Rust.
 
 ## Runtime Flow
 1. The app boots through Vite/Tauri. `src/main.tsx` mounts `App` and imports `src/styles/globals.css`.
-2. `src/App.tsx` loads persisted workspace state on mount, subscribes to Tauri events once on mount, and debounces autosave writes back through Tauri persistence commands. Event payload contracts live in `src/types/index.ts`.
-3. `Sidebar` creates or switches projects and chat sessions. Each project stores its title, chosen working directory, collapse state, remembered last-active chat, and nested chat list. Each session stores provider, model, title, messages, streaming state, and the provider CLI session identifier.
+2. `src/App.tsx` loads persisted workspace state on mount, restores the saved sidebar width ratio when present, subscribes to Tauri events once on mount, and debounces autosave writes back through Tauri persistence commands. Event payload contracts live in `src/types/index.ts`.
+3. `Sidebar` creates or switches projects and chat sessions. `App.tsx` owns the shell-level sidebar width and drag lifecycle, persisting the sidebar as a viewport ratio and clamping the derived pixel width between a fixed minimum and 75% of the viewport, while `Sidebar` renders the resize separator plus the project tree. Each project stores its title, chosen working directory, collapse state, remembered last-active chat, and nested chat list. Each session stores provider, model, title, messages, streaming state, and the provider CLI session identifier.
 4. Choosing `New project` opens the directory picker first. If the selected folder already contains `.Vertical` state, the app loads it. Otherwise the store creates a project named after that folder and inserts one empty chat inside it.
 5. `InputBar` is only rendered when a chat is selected. The selected chat session is the source of truth for its provider/model configuration, and changing either resets that session's saved provider CLI session id.
 6. Sending appends the user prompt and a placeholder assistant message into the Zustand store, then invokes the Rust command `send_message` with the selected chat plus the owning project's working directory.
 7. `src-tauri/src/commands/chat.rs` maps the provider string to a command builder, starts the external CLI process, tracks the running child per chat session, reads JSON from stdout plus diagnostics from stderr, applies a provider timeout, and emits normalized stream updates back to the frontend.
-8. `src-tauri/src/commands/persistence.rs` writes `.Vertical/project.json`, one file per chat under `.Vertical/chats/`, and an executable-adjacent `.Vertical/registry.json` that remembers known project folders and the last active project.
+8. `src-tauri/src/commands/persistence.rs` writes `.Vertical/project.json`, one file per chat under `.Vertical/chats/`, and an executable-adjacent `.Vertical/registry.json` that remembers known project folders, the last active project, and shell-level workspace preferences such as the persisted sidebar width ratio.
 9. As events arrive, the store updates the in-progress assistant message in place. Completion persists the provider CLI session id so later prompts can resume the same conversation, while failures and cancellations emit a dedicated error event.
 
 ## Current Frontend Shape
-- The layout is a fixed two-column shell: project and chat controls on the left, conversation on the right.
+- The layout is a two-column shell with a draggable left sidebar: project and chat controls on the left, conversation on the right.
 - Each sidebar project row exposes a collapse arrow, folder icon, persistent new-chat button, and actions menu for inline rename plus delete. Chat rows show the session provider icon and keep their own rename and delete menu.
 - `ChatView` handles three empty states: no active session, active session with no messages, and active session with transcript.
 - `MessageBubble` animates message entry and uses a typing indicator while the assistant placeholder is still empty.
@@ -40,7 +40,7 @@ Vertical is a desktop chat client built with Tauri, React, TypeScript, and Rust.
 
 ## Change Map
 - Application shell, workspace hydration, and autosave orchestration: `src/App.tsx`
-- Project tree and nested chat controls: `src/components/Sidebar.tsx`
+- Project tree, nested chat controls, and resize handle rendering: `src/components/Sidebar.tsx`
 - Project/session state transitions: `src/store/chatStore.ts`
 - Shared TypeScript contracts, event payloads, and model catalog: `src/types/index.ts`
 - Tauri bootstrap and command registration: `src-tauri/src/lib.rs`, `src-tauri/src/main.rs`

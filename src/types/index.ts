@@ -29,6 +29,7 @@ export interface ChatProject {
 export interface PersistedWorkspaceState {
   projects: ChatProject[];
   activeSessionId: string | null;
+  sidebarWidthRatio: number | null;
 }
 
 export interface StreamChunkEvent {

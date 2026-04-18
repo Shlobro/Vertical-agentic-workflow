@@ -12,6 +12,9 @@ import { ChatProject, ChatSession } from "../types";
 import { PROVIDER_ICONS } from "../assets/providerIcons";
 
 interface Props {
+  width: number;
+  isResizing: boolean;
+  onResizeStart: (event: React.MouseEvent<HTMLDivElement>) => void;
   projects: ChatProject[];
   activeSessionId: string | null;
   onNewProject: () => void | Promise<void>;
@@ -25,6 +28,9 @@ interface Props {
 }
 
 export default function Sidebar({
+  width,
+  isResizing,
+  onResizeStart,
   projects,
   activeSessionId,
   onNewProject,
@@ -98,7 +104,23 @@ export default function Sidebar({
   }
 
   return (
-    <div className="w-72 flex-shrink-0 flex flex-col bg-bg-sidebar border-r border-border h-full">
+    <div
+      className="relative flex h-full flex-shrink-0 flex-col border-r border-border bg-bg-sidebar"
+      style={{ width }}
+    >
+      <div
+        role="separator"
+        aria-label="Resize sidebar"
+        aria-orientation="vertical"
+        onMouseDown={onResizeStart}
+        className="group absolute -right-2 top-0 z-20 h-full w-4 cursor-col-resize"
+      >
+        <div
+          className={`absolute inset-y-0 left-1/2 w-px -translate-x-1/2 transition-colors ${
+            isResizing ? "bg-blue-400/80" : "bg-transparent group-hover:bg-blue-400/50"
+          }`}
+        />
+      </div>
       <div className="px-3 pt-5 pb-3 border-b border-border">
         <button
           onClick={() => void onNewProject()}
