@@ -80,7 +80,7 @@ export default function InputBar({
   const activeModel = MODELS[provider].find((m) => m.id === model);
 
   return (
-    <div className="px-4 py-3 border-t border-border bg-bg-primary">
+    <div className="px-4 py-4 border-t border-border bg-bg-primary">
       <div className="flex flex-col rounded-xl border border-border bg-surface px-3 pt-2 pb-2">
         <label htmlFor="chat-input" className="sr-only">
           Message
