@@ -3,9 +3,10 @@ import { Message } from "../types";
 
 interface Props {
   message: Message;
+  highlightQuery?: string;
 }
 
-export default function MessageBubble({ message }: Props) {
+export default function MessageBubble({ message, highlightQuery }: Props) {
   const isUser = message.role === "user";
 
   return (
@@ -28,13 +29,42 @@ export default function MessageBubble({ message }: Props) {
           <TypingIndicator />
         ) : (
           <>
-            {message.text}
+            {highlightQuery
+              ? renderHighlighted(message.text, highlightQuery)
+              : message.text}
             {message.streaming && <span className="animate-pulse ml-1" aria-hidden="true">|</span>}
           </>
         )}
       </div>
     </motion.div>
   );
+}
+
+function renderHighlighted(text: string, query: string) {
+  const q = query.trim();
+  console.log("[search] renderHighlighted", { q, textSnippet: text.slice(0, 40) });
+  if (!q) return <>{text}</>;
+
+  const parts = text.split(new RegExp(`(${escapeRegex(q)})`, "gi"));
+  const qLower = q.toLowerCase();
+
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.toLowerCase() === qLower ? (
+          <mark key={i} className="bg-yellow-300 text-black rounded-sm px-0.5 not-italic">
+            {part}
+          </mark>
+        ) : (
+          <span key={i}>{part}</span>
+        ),
+      )}
+    </>
+  );
+}
+
+function escapeRegex(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function TypingIndicator() {

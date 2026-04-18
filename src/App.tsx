@@ -68,6 +68,8 @@ export default function App() {
   const [defaultProvider, setDefaultProvider] = useState<Provider>("claude");
   const [defaultModel, setDefaultModel] = useState(DEFAULT_MODELS.claude);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete>(null);
+  const [scrollToMessageId, setScrollToMessageId] = useState<string | null>(null);
+  const [activeHighlightQuery, setActiveHighlightQuery] = useState<string>("");
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
   const [companionFileSelectionDefaults, setCompanionFileSelectionDefaults] =
@@ -325,6 +327,19 @@ export default function App() {
     setPendingDelete({ kind: "session", id: sessionId });
   }
 
+  function handleSearchSelectSession(sessionId: string, messageId: string | null, query: string) {
+    console.log("[search] handleSearchSelectSession", { sessionId, messageId, query });
+    store.setActiveSession(sessionId);
+    setActiveHighlightQuery(query);
+    setScrollToMessageId(messageId);
+  }
+
+  function handleSelectSession(sessionId: string) {
+    setScrollToMessageId(null);
+    setActiveHighlightQuery("");
+    store.setActiveSession(sessionId);
+  }
+
   function handleSidebarResizeStart(event: ReactMouseEvent<HTMLDivElement>) {
     event.preventDefault();
     sidebarResizeRef.current = {
@@ -503,14 +518,19 @@ export default function App() {
         onNewProject={handleNewProject}
         onNewChat={handleNewChat}
         onToggleProject={store.toggleProjectCollapsed}
-        onSelectSession={store.setActiveSession}
+        onSelectSession={handleSelectSession}
         onRenameProject={store.renameProject}
         onDeleteProject={handleDeleteProject}
         onRenameSession={store.renameSession}
         onDeleteSession={handleDeleteChat}
+        onSearchSelectSession={handleSearchSelectSession}
       />
       <div className="flex min-w-0 flex-1 flex-col">
-        <ChatView session={activeSession} />
+        <ChatView
+          session={activeSession}
+          highlightQuery={activeHighlightQuery || undefined}
+          scrollToMessageId={scrollToMessageId}
+        />
         {activeSession && activeProject && (
           <InputBar
             streaming={activeSession.isStreaming}

@@ -4,14 +4,24 @@ import MessageBubble from "./MessageBubble";
 
 interface Props {
   session: ChatSession | null;
+  highlightQuery?: string;
+  scrollToMessageId?: string | null;
 }
 
-export default function ChatView({ session }: Props) {
+export default function ChatView({ session, highlightQuery, scrollToMessageId }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   useEffect(() => {
+    if (scrollToMessageId) {
+      const el = messageRefs.current.get(scrollToMessageId);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+    }
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [session?.messages]);
+  }, [session?.messages, scrollToMessageId]);
 
   if (!session) {
     return (
@@ -37,7 +47,18 @@ export default function ChatView({ session }: Props) {
   return (
     <div className="flex-1 overflow-y-auto px-6 py-4 space-y-1">
       {session.messages.map((msg) => (
-        <MessageBubble key={msg.id} message={msg} />
+        <div
+          key={msg.id}
+          ref={(el) => {
+            if (el) messageRefs.current.set(msg.id, el);
+            else messageRefs.current.delete(msg.id);
+          }}
+        >
+          <MessageBubble
+            message={msg}
+            highlightQuery={highlightQuery}
+          />
+        </div>
       ))}
       <div ref={bottomRef} />
     </div>

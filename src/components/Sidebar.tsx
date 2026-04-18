@@ -6,7 +6,9 @@ import {
   MessageCirclePlus,
   Pencil,
   Plus,
+  Search,
   Trash2,
+  X,
 } from "lucide-react";
 import { ChatProject, ChatSession } from "../types";
 import { PROVIDER_ICONS } from "../assets/providerIcons";
@@ -25,6 +27,99 @@ interface Props {
   onDeleteProject: (projectId: string) => void | Promise<void>;
   onRenameSession: (id: string, title: string) => void;
   onDeleteSession: (id: string) => void | Promise<void>;
+  onSearchSelectSession: (sessionId: string, messageId: string | null, query: string) => void;
+}
+
+interface SearchScope {
+  projectNames: boolean;
+  chatNames: boolean;
+  chatContents: boolean;
+}
+
+interface FilteredSession {
+  session: ChatSession;
+  lastMatchingMessageId: string | null;
+}
+
+interface FilteredProject {
+  project: ChatProject;
+  sessions: FilteredSession[];
+  projectMatches: boolean;
+}
+
+function escapeRegex(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function highlightText(text: string, query: string) {
+  if (!query.trim()) return <>{text}</>;
+  const parts = text.split(new RegExp(`(${escapeRegex(query)})`, "gi"));
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.toLowerCase() === query.toLowerCase() ? (
+          <mark key={i} className="bg-yellow-300 text-black rounded-sm px-0.5">
+            {part}
+          </mark>
+        ) : (
+          part
+        ),
+      )}
+    </>
+  );
+}
+
+function isScopeEmpty(scope: SearchScope) {
+  return !scope.projectNames && !scope.chatNames && !scope.chatContents;
+}
+
+function filterProjects(projects: ChatProject[], query: string, scope: SearchScope): FilteredProject[] {
+  const q = query.trim().toLowerCase();
+  const effective = scope;
+
+  if (!q) {
+    return projects.map((p) => ({
+      project: p,
+      sessions: p.sessions.map((s) => ({ session: s, lastMatchingMessageId: null })),
+      projectMatches: false,
+    }));
+  }
+
+  return projects
+    .map((project): FilteredProject | null => {
+      const projectMatches = effective.projectNames && project.title.toLowerCase().includes(q);
+
+      const matchedSessions: FilteredSession[] = project.sessions
+        .map((session): FilteredSession | null => {
+          const titleMatches = effective.chatNames && session.title.toLowerCase().includes(q);
+          const matchingMessages = effective.chatContents
+            ? session.messages.filter((m) => m.text.toLowerCase().includes(q))
+            : [];
+          const lastMatchingMessageId =
+            matchingMessages.length > 0 ? matchingMessages[matchingMessages.length - 1].id : null;
+
+          if (titleMatches || lastMatchingMessageId) {
+            return { session, lastMatchingMessageId: titleMatches ? null : lastMatchingMessageId };
+          }
+          return null;
+        })
+        .filter((s): s is FilteredSession => s !== null);
+
+      if (projectMatches) {
+        return {
+          project,
+          sessions: project.sessions.map((s) => ({ session: s, lastMatchingMessageId: null })),
+          projectMatches: true,
+        };
+      }
+
+      if (matchedSessions.length > 0) {
+        return { project, sessions: matchedSessions, projectMatches: false };
+      }
+
+      return null;
+    })
+    .filter((p): p is FilteredProject => p !== null);
 }
 
 export default function Sidebar({
@@ -41,20 +136,33 @@ export default function Sidebar({
   onDeleteProject,
   onRenameSession,
   onDeleteSession,
+  onSearchSelectSession,
 }: Props) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchScope, setSearchScope] = useState<SearchScope>({
+    projectNames: true,
+    chatNames: true,
+    chatContents: false,
+  });
+  const [searchMenuOpen, setSearchMenuOpen] = useState(false);
+  const searchMenuRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!openMenuId) return;
+    if (!openMenuId && !searchMenuOpen) return;
     function handleOutsideClick(event: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setOpenMenuId(null);
       }
+      if (searchMenuRef.current && !searchMenuRef.current.contains(event.target as Node)) {
+        setSearchMenuOpen(false);
+      }
     }
     document.addEventListener("mousedown", handleOutsideClick);
     return () => document.removeEventListener("mousedown", handleOutsideClick);
-  }, [openMenuId]);
+  }, [openMenuId, searchMenuOpen]);
 
   const [editingItem, setEditingItem] = useState<
     { kind: "project"; id: string } | { kind: "session"; id: string } | null
@@ -82,14 +190,12 @@ export default function Sidebar({
 
   function submitRename() {
     if (!editingItem) return;
-
     const trimmedTitle = draftTitle.trim();
     if (!trimmedTitle) {
       setDraftTitle("");
       setEditingItem(null);
       return;
     }
-
     if (editingItem.kind === "project") {
       onRenameProject(editingItem.id, trimmedTitle);
     } else {
@@ -104,7 +210,6 @@ export default function Sidebar({
       submitRename();
       return;
     }
-
     if (event.key === "Escape") {
       setEditingItem(null);
       setDraftTitle("");
@@ -114,6 +219,23 @@ export default function Sidebar({
   function handleRenameSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     submitRename();
+  }
+
+  function toggleScopeKey(key: keyof SearchScope) {
+    setSearchScope((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  const scopeEmpty = isScopeEmpty(searchScope);
+  const isSearching = !scopeEmpty && searchQuery.trim().length > 0;
+  const filteredProjects = filterProjects(projects, searchQuery, searchScope);
+
+  function handleSessionClick(sessionId: string, lastMatchingMessageId: string | null) {
+    console.log("[search] click", { sessionId, lastMatchingMessageId, searchQuery, isSearching });
+    if (isSearching && lastMatchingMessageId) {
+      onSearchSelectSession(sessionId, lastMatchingMessageId, searchQuery);
+    } else {
+      onSelectSession(sessionId);
+    }
   }
 
   return (
@@ -134,7 +256,8 @@ export default function Sidebar({
           }`}
         />
       </div>
-      <div className="px-3 pt-5 pb-3 border-b border-border">
+
+      <div className="px-3 pt-5 pb-3 border-b border-border space-y-2">
         <button
           onClick={() => void onNewProject()}
           className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors"
@@ -142,15 +265,97 @@ export default function Sidebar({
           <Plus size={15} />
           New Project
         </button>
+
+        <div className="flex items-center gap-1.5">
+          <div className="relative flex-1">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={scopeEmpty ? "No scope selected" : "Search…"}
+              aria-label="Search projects and chats"
+              disabled={scopeEmpty}
+              className={`w-full rounded-lg border border-border bg-surface pl-7 pr-7 py-1.5 text-xs placeholder:text-text-muted outline-none transition-colors ${
+                scopeEmpty
+                  ? "opacity-40 cursor-not-allowed text-text-muted"
+                  : "text-text-primary focus:border-blue-400"
+              }`}
+            />
+            {isSearching && (
+              <button
+                type="button"
+                aria-label="Clear search"
+                onClick={() => { setSearchQuery(""); searchInputRef.current?.focus(); }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+
+          <div className="relative" ref={searchMenuRef}>
+            <button
+              type="button"
+              aria-label="Search options"
+              onClick={() => setSearchMenuOpen((o) => !o)}
+              className={`rounded-md p-1.5 transition-colors ${
+                searchMenuOpen
+                  ? "bg-surface text-text-primary"
+                  : "text-text-muted hover:bg-surface-hover hover:text-text-primary"
+              }`}
+            >
+              <Ellipsis size={14} />
+            </button>
+
+            {searchMenuOpen && (
+              <div className="absolute right-0 top-10 z-10 min-w-44 rounded-lg border border-border bg-surface p-1 shadow-lg">
+                {(
+                  [
+                    { key: "projectNames", label: "Project names" },
+                    { key: "chatNames", label: "Chat names" },
+                    { key: "chatContents", label: "Chat contents" },
+                  ] as { key: keyof SearchScope; label: string }[]
+                ).map(({ key, label }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => toggleScopeKey(key)}
+                    className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left text-sm text-text-primary hover:bg-surface-hover"
+                  >
+                    <span
+                      className={`flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center rounded-sm border transition-colors ${
+                        searchScope[key]
+                          ? "border-blue-500 bg-blue-500"
+                          : "border-border bg-transparent"
+                      }`}
+                    >
+                      {searchScope[key] && (
+                        <svg viewBox="0 0 10 8" className="h-2 w-2 fill-white" aria-hidden="true">
+                          <path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )}
+                    </span>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto py-2 px-2 space-y-1">
-        {projects.length === 0 && (
-          <p className="text-xs text-text-muted text-center py-4">No projects yet</p>
+        {filteredProjects.length === 0 && (
+          <p className="text-xs text-text-muted text-center py-4">
+            {isSearching ? "No results" : "No projects yet"}
+          </p>
         )}
 
-        {[...projects].reverse().map((project) => {
+        {[...filteredProjects].reverse().map(({ project, sessions: filteredSessions, projectMatches }) => {
           const editingProject = editingItem?.kind === "project" && editingItem.id === project.id;
+          const isExpanded = isSearching ? true : !project.collapsed;
 
           return (
             <div key={project.id} className="rounded-xl border border-transparent bg-transparent">
@@ -159,12 +364,12 @@ export default function Sidebar({
                   <button
                     type="button"
                     aria-label={project.collapsed ? `Expand ${project.title}` : `Collapse ${project.title}`}
-                    onClick={() => onToggleProject(project.id)}
+                    onClick={() => !isSearching && onToggleProject(project.id)}
                     className="rounded-md p-1 text-text-muted hover:bg-surface-hover hover:text-text-primary"
                   >
                     <ChevronRight
                       size={14}
-                      className={`transition-transform ${project.collapsed ? "" : "rotate-90"}`}
+                      className={`transition-transform ${isExpanded ? "rotate-90" : ""}`}
                     />
                   </button>
 
@@ -187,7 +392,11 @@ export default function Sidebar({
                     </form>
                   ) : (
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium text-text-primary">{project.title}</p>
+                      <p className="truncate font-medium text-text-primary">
+                        {isSearching && searchScope.projectNames
+                          ? highlightText(project.title, searchQuery)
+                          : project.title}
+                      </p>
                     </div>
                   )}
 
@@ -241,15 +450,19 @@ export default function Sidebar({
                 </div>
               </div>
 
-              {!project.collapsed && (
+              {isExpanded && (
                 <div className="ml-8 mt-1 space-y-0.5">
-                  {project.sessions.length === 0 && (
+                  {filteredSessions.length === 0 && projectMatches && project.sessions.length === 0 && (
+                    <p className="px-3 py-2 text-xs text-text-muted">No chats yet</p>
+                  )}
+                  {filteredSessions.length === 0 && !isSearching && (
                     <p className="px-3 py-2 text-xs text-text-muted">No chats yet</p>
                   )}
 
-                  {[...project.sessions].reverse().map((session) => {
+                  {filteredSessions.map(({ session, lastMatchingMessageId }) => {
                     const editingSession =
                       editingItem?.kind === "session" && editingItem.id === session.id;
+                    const titleMatches = isSearching && searchScope.chatNames && session.title.toLowerCase().includes(searchQuery.trim().toLowerCase());
 
                     return (
                       <div
@@ -279,7 +492,7 @@ export default function Sidebar({
                           ) : (
                             <button
                               type="button"
-                              onClick={() => onSelectSession(session.id)}
+                              onClick={() => handleSessionClick(session.id, lastMatchingMessageId)}
                               className="flex flex-1 min-w-0 items-center gap-2 px-3 py-2 text-left"
                             >
                               <img
@@ -287,7 +500,11 @@ export default function Sidebar({
                                 alt={`${session.provider} provider`}
                                 className="h-[13px] w-[13px] flex-shrink-0 object-contain opacity-85"
                               />
-                              <span className="truncate flex-1">{session.title}</span>
+                              <span className="truncate flex-1">
+                                {titleMatches
+                                  ? highlightText(session.title, searchQuery)
+                                  : session.title}
+                              </span>
                               {session.isStreaming && (
                                 <span className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0 animate-pulse" />
                               )}
