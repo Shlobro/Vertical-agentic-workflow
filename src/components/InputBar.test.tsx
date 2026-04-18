@@ -4,10 +4,12 @@ import InputBar from "./InputBar";
 
 describe("InputBar", () => {
   const originalInnerHeight = window.innerHeight;
+  const originalRequestAnimationFrame = window.requestAnimationFrame;
 
   afterEach(() => {
     cleanup();
     window.innerHeight = originalInnerHeight;
+    window.requestAnimationFrame = originalRequestAnimationFrame;
     vi.restoreAllMocks();
   });
 
@@ -167,5 +169,41 @@ describe("InputBar", () => {
     fireEvent.change(textarea, { target: { value: "@inp" } });
 
     expect(screen.getByRole("listbox", { name: "File suggestions" }).getAttribute("data-placement")).toBe("above");
+  });
+
+  it("lets the composer grow until the full input panel reaches half the window height", () => {
+    window.innerHeight = 600;
+    window.requestAnimationFrame = ((callback: FrameRequestCallback) => {
+      callback(0);
+      return 0;
+    }) as typeof window.requestAnimationFrame;
+
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(function (this: HTMLElement) {
+      if (this instanceof HTMLTextAreaElement) {
+        return 40;
+      }
+
+      if (this.tagName === "DIV" && this.className.includes("max-h-[50vh]")) {
+        return 120;
+      }
+
+      return 0;
+    });
+
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(function (this: HTMLElement) {
+      if (this instanceof HTMLTextAreaElement) {
+        return 24;
+      }
+
+      return 0;
+    });
+
+    vi.spyOn(HTMLTextAreaElement.prototype, "scrollHeight", "get").mockReturnValue(500);
+
+    renderBar();
+    const textarea = screen.getByLabelText("Message") as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: "line 1\nline 2\nline 3\nline 4\nline 5" } });
+
+    expect(textarea.style.height).toBe("220px");
   });
 });

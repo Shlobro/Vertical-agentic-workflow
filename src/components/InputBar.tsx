@@ -26,6 +26,7 @@ interface MentionState {
   options: MentionOption[];
 }
 
+const MAX_INPUT_BAR_HEIGHT_RATIO = 0.5;
 const MAX_MENTION_OPTIONS = 8;
 const DEFAULT_MENTION_LIST_MAX_HEIGHT = 224;
 const MIN_MENTION_LIST_MAX_HEIGHT = 96;
@@ -42,6 +43,7 @@ export default function InputBar({
   onCancel,
 }: Props) {
   const ref = useRef<HTMLTextAreaElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const providerDropdownRef = useRef<HTMLDivElement>(null);
   const modelDropdownRef = useRef<HTMLDivElement>(null);
@@ -113,6 +115,15 @@ export default function InputBar({
     };
   }, [mentionOpen]);
 
+  useEffect(() => {
+    const handleWindowResize = () => resizeTextarea();
+
+    window.addEventListener("resize", handleWindowResize);
+    return () => {
+      window.removeEventListener("resize", handleWindowResize);
+    };
+  }, []);
+
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (mentionState && mentionState.options.length > 0) {
       if (event.key === "ArrowDown") {
@@ -150,20 +161,36 @@ export default function InputBar({
     const nextText = text.trim();
     if (!nextText) return;
     setText("");
-    if (ref.current) {
-      ref.current.style.height = "auto";
-    }
+    resizeTextarea();
     setMentionState(null);
     onSend(nextText);
   }
 
-  function autoResize(nextValue: string) {
-    setText(nextValue);
+  function getMaxTextareaHeight() {
+    if (!ref.current || !wrapperRef.current) {
+      return Math.floor(window.innerHeight * MAX_INPUT_BAR_HEIGHT_RATIO);
+    }
+
+    const maxInputBarHeight = Math.floor(window.innerHeight * MAX_INPUT_BAR_HEIGHT_RATIO);
+    const chromeHeight = Math.max(0, wrapperRef.current.offsetHeight - ref.current.offsetHeight);
+    const minimumVisibleHeight = ref.current.clientHeight || ref.current.rows * 24;
+    return Math.max(minimumVisibleHeight, maxInputBarHeight - chromeHeight);
+  }
+
+  function resizeTextarea(nextValue?: string) {
+    if (typeof nextValue === "string") {
+      setText(nextValue);
+    }
+
     requestAnimationFrame(() => {
       if (!ref.current) return;
       ref.current.style.height = "auto";
-      ref.current.style.height = `${Math.min(ref.current.scrollHeight, 120)}px`;
+      ref.current.style.height = `${Math.min(ref.current.scrollHeight, getMaxTextareaHeight())}px`;
     });
+  }
+
+  function autoResize(nextValue: string) {
+    resizeTextarea(nextValue);
   }
 
   function selectProvider(nextProvider: Provider) {
@@ -190,8 +217,7 @@ export default function InputBar({
       ref.current.focus();
       ref.current.selectionStart = nextCursorPosition;
       ref.current.selectionEnd = nextCursorPosition;
-      ref.current.style.height = "auto";
-      ref.current.style.height = `${Math.min(ref.current.scrollHeight, 120)}px`;
+      resizeTextarea();
     });
   }
 
@@ -204,8 +230,8 @@ export default function InputBar({
       : undefined;
 
   return (
-    <div className="px-4 py-4 border-t border-border bg-bg-primary">
-      <div ref={containerRef} className="relative flex flex-col rounded-xl border border-border bg-surface px-3 pt-2 pb-2">
+    <div ref={wrapperRef} className="max-h-[50vh] px-4 py-4 border-t border-border bg-bg-primary">
+      <div ref={containerRef} className="relative flex max-h-full flex-col rounded-xl border border-border bg-surface px-3 pt-2 pb-2">
         <label htmlFor="chat-input" className="sr-only">
           Message
         </label>
@@ -220,7 +246,7 @@ export default function InputBar({
           onClick={() => setMentionState(getMentionState(text, ref.current?.selectionStart ?? text.length, projectFilePaths))}
           onKeyUp={() => setMentionState(getMentionState(text, ref.current?.selectionStart ?? text.length, projectFilePaths))}
           onChange={(event) => autoResize(event.target.value)}
-          className="chat-input-font input-font-base mb-2 max-h-[120px] w-full resize-none overflow-y-auto bg-transparent text-text-primary outline-none placeholder-text-muted"
+          className="chat-input-font input-font-base mb-2 w-full resize-none overflow-y-auto bg-transparent text-text-primary outline-none placeholder-text-muted"
           aria-autocomplete="list"
           aria-controls={mentionOpen ? mentionListId : undefined}
           aria-expanded={mentionOpen ? true : undefined}
