@@ -1,7 +1,7 @@
 # Vertical Developer Guide
 
 ## Purpose
-Vertical is a desktop chat client built with Tauri, React, TypeScript, and Rust. It provides a local multi-session UI for sending prompts to Claude Code or Codex CLI, streaming responses back into the app, and resuming provider CLI sessions per chat.
+Vertical is a desktop chat client built with Tauri, React, TypeScript, and Rust. It provides a local multi-session UI for sending prompts to Claude Code or the OpenAI/Codex CLI stack, streaming responses back into the app, and resuming provider CLI sessions per chat.
 
 ## Top-Level Map
 - `src/`: Frontend application. React renders the shell, Zustand stores chat state, and Tailwind v4 theme tokens live in CSS.
@@ -32,9 +32,9 @@ Vertical is a desktop chat client built with Tauri, React, TypeScript, and Rust.
 - `src-tauri/src/lib.rs` wires Tauri, registers the opener plugin, and exposes the `send_message` command.
 - Provider-specific command construction and JSON parsing live under `src-tauri/src/providers/`.
 - `ClaudeProvider` builds `claude --dangerously-skip-permissions --print --output-format stream-json --include-partial-messages ...`.
-- `CodexProvider` builds `codex exec --skip-git-repo-check --full-auto --json ...`.
+- `CodexProvider` builds `codex exec --skip-git-repo-check --full-auto --json ...`, supports GPT and Codex model ids, and maps `:<reasoning-effort>` suffixes into Codex CLI config flags.
 - The command layer captures stderr for user-visible failures, times out stalled provider runs, and tracks running provider processes so the frontend can cancel them.
-- Streaming events now carry the best known full assistant text for the active request, normalizing providers that emit either deltas or cumulative snapshots.
+- Streaming events now carry the best known full assistant text for the active request, normalizing providers that emit either deltas, cumulative snapshots, or nested assistant-message payloads.
 
 ## Change Map
 - Application shell and event wiring: `src/App.tsx`

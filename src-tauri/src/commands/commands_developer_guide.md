@@ -4,7 +4,7 @@
 `src-tauri/src/commands/` exposes backend operations to the frontend through Tauri invoke handlers.
 
 ## Current Scope
-- `chat.rs`: Starts a provider CLI process, tracks the active child by chat session, streams normalized text back to the UI, emits completion or error events, supports cancellation, and times out stalled provider runs.
+- `chat.rs`: Starts a provider CLI process, tracks the active child by chat session, streams normalized text back to the UI, emits completion or error events, supports cancellation, times out stalled provider runs, and normalizes nested provider payloads such as Codex `item.completed` assistant messages.
 - `mod.rs`: Re-exports command modules.
 
 ## Guardrails

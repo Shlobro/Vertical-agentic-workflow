@@ -50,7 +50,7 @@ export default function Sidebar({ sessions, activeSessionId, onNewChat, onSelect
                 }`}
               >
                 <img src={LOGOS[p.id]} alt={p.label} className="w-3.5 h-3.5 object-contain" />
-                {p.id === "claude" ? "Claude" : "Codex"}
+                {p.id === "claude" ? "Claude" : "OpenAI"}
               </button>
             ))}
           </div>

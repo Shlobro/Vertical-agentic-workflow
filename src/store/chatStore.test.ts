@@ -25,7 +25,7 @@ describe("chatStore", () => {
 
   it("updates and finalizes the last assistant message", () => {
     const store = useChatStore.getState();
-    const session = store.addSession("codex", "codex-mini-latest");
+    const session = store.addSession("codex", "gpt-5.4");
 
     store.addMessage(session.id, {
       id: "user-1",
@@ -50,5 +50,11 @@ describe("chatStore", () => {
       text: "Partial done",
       streaming: false,
     });
+  });
+
+  it("keeps the selected OpenAI model on a new session", () => {
+    const session = useChatStore.getState().addSession("codex", "gpt-5.3-codex:xhigh");
+
+    expect(session.model).toBe("gpt-5.3-codex:xhigh");
   });
 });

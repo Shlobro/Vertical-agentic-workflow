@@ -27,7 +27,7 @@ export default function ChatView({ session }: Props) {
         <div className="text-center space-y-2">
           <p className="text-2xl font-semibold text-text-primary">Vertical</p>
           <p className="text-text-muted text-sm">
-            Start a conversation with {session.provider === "claude" ? "Claude Code" : "Codex CLI"}
+            Start a conversation with {session.provider === "claude" ? "Claude Code" : "OpenAI / Codex CLI"}
           </p>
         </div>
       </div>

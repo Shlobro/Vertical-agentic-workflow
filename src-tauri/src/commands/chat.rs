@@ -446,6 +446,12 @@ fn extract_text_from_value(val: &serde_json::Value) -> Option<String> {
         }
     }
 
+    if let Some(item) = val.get("item") {
+        if let Some(text) = extract_text_from_value(item) {
+            return Some(text);
+        }
+    }
+
     None
 }
 
@@ -499,6 +505,12 @@ mod tests {
     #[test]
     fn extracts_claude_partial_message_text() {
         let line = r#"{"type":"assistant","partial_message":"hello"}"#;
+        assert_eq!(try_extract_stream_text(line).as_deref(), Some("hello"));
+    }
+
+    #[test]
+    fn extracts_codex_completed_agent_message_text() {
+        let line = r#"{"type":"item.completed","item":{"type":"agent_message","content":[{"type":"output_text","text":"hello"}]}}"#;
         assert_eq!(try_extract_stream_text(line).as_deref(), Some("hello"));
     }
 

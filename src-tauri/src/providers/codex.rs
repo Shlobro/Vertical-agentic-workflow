@@ -12,9 +12,15 @@ impl CodexProvider {
             "--full-auto".to_string(),
             "--json".to_string(),
         ];
-        if !model.is_empty() {
+        let (actual_model, reasoning_effort) = split_model_and_reasoning_effort(model);
+
+        if let Some(model) = actual_model {
             args.push("--model".to_string());
             args.push(model.to_string());
+        }
+        if let Some(reasoning_effort) = reasoning_effort {
+            args.push("-c".to_string());
+            args.push(format!("model_reasoning_effort={reasoning_effort}"));
         }
         if let Some(sid) = session_id {
             if !sid.is_empty() {
@@ -34,15 +40,126 @@ impl CodexProvider {
     }
 
     pub fn extract_text(json_str: &str) -> Option<String> {
-        if let Ok(val) = serde_json::from_str::<serde_json::Value>(json_str) {
-            if let Some(result) = val.get("result") {
-                return Some(result.as_str().unwrap_or("").to_string());
+        let mut final_messages = Vec::new();
+        let mut fallback_messages = Vec::new();
+
+        for line in json_str.lines() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() {
+                continue;
             }
-            if let Some(output) = val.get("output") {
-                return Some(output.as_str().unwrap_or("").to_string());
+
+            let Ok(val) = serde_json::from_str::<serde_json::Value>(trimmed) else {
+                continue;
+            };
+
+            let Some(message) = extract_codex_message(&val) else {
+                continue;
+            };
+
+            let event_type = val
+                .get("type")
+                .and_then(|item| item.as_str())
+                .unwrap_or_default()
+                .to_ascii_lowercase();
+
+            if matches!(
+                event_type.as_str(),
+                "result" | "message" | "final_message" | "assistant_message"
+            ) {
+                final_messages.push(message);
+            } else if event_type.contains("assistant") || event_type.contains("completed") {
+                fallback_messages.push(message);
             }
         }
-        None
+
+        final_messages
+            .pop()
+            .or_else(|| fallback_messages.pop())
+    }
+}
+
+fn split_model_and_reasoning_effort(model: &str) -> (Option<&str>, Option<&str>) {
+    if model.is_empty() {
+        return (None, None);
+    }
+
+    if let Some((actual_model, reasoning_effort)) = model.split_once(':') {
+        let actual_model = (!actual_model.is_empty()).then_some(actual_model);
+        let reasoning_effort = (!reasoning_effort.is_empty()).then_some(reasoning_effort);
+        return (actual_model, reasoning_effort);
+    }
+
+    (Some(model), None)
+}
+
+fn extract_codex_message(val: &serde_json::Value) -> Option<String> {
+    if let Some(item) = val.get("item").and_then(|item| item.as_object()) {
+        let item_type = item
+            .get("type")
+            .and_then(|value| value.as_str())
+            .unwrap_or_default()
+            .to_ascii_lowercase();
+
+        if matches!(
+            item_type.as_str(),
+            "agent_message" | "assistant_message" | "message"
+        ) {
+            let joined = item
+                .get("text")
+                .or_else(|| item.get("content"))
+                .or_else(|| item.get("output"))
+                .or_else(|| item.get("result"))
+                .map(flatten_text)
+                .unwrap_or_default()
+                .join("\n")
+                .trim()
+                .to_string();
+
+            if !joined.is_empty() {
+                return Some(joined);
+            }
+        }
+    }
+
+    for key in [
+        "last_message",
+        "final_message",
+        "message",
+        "result",
+        "content",
+        "output",
+    ] {
+        let joined = val
+            .get(key)
+            .map(flatten_text)
+            .unwrap_or_default()
+            .join("\n")
+            .trim()
+            .to_string();
+
+        if !joined.is_empty() {
+            return Some(joined);
+        }
+    }
+
+    None
+}
+
+fn flatten_text(val: &serde_json::Value) -> Vec<String> {
+    match val {
+        serde_json::Value::String(text) => vec![text.to_string()],
+        serde_json::Value::Array(items) => items.iter().flat_map(flatten_text).collect(),
+        serde_json::Value::Object(map) => {
+            for key in ["text", "result", "output", "message", "content"] {
+                if let Some(value) = map.get(key) {
+                    return flatten_text(value);
+                }
+            }
+
+            Vec::new()
+        }
+        _ => Vec::new(),
     }
 }
 
@@ -85,10 +202,22 @@ mod tests {
     #[test]
     fn build_command_uses_exec_json_mode() {
         let (_, args) =
-            CodexProvider::build_command("codex-mini-latest", Some("thread-1"), "hello");
+            CodexProvider::build_command("gpt-5.4:high", Some("thread-1"), "hello");
 
         assert_eq!(args[0], "exec");
         assert!(args.contains(&"--json".to_string()));
+        assert!(args.contains(&"gpt-5.4".to_string()));
+        assert!(args.contains(&"model_reasoning_effort=high".to_string()));
         assert!(args.contains(&"resume".to_string()));
+    }
+
+    #[test]
+    fn extract_text_prefers_completed_agent_message() {
+        let output = concat!(
+            "{\"type\":\"thread.started\",\"thread_id\":\"thread-1\"}\n",
+            "{\"type\":\"item.completed\",\"item\":{\"type\":\"agent_message\",\"content\":[{\"type\":\"output_text\",\"text\":\"final answer\"}]}}\n"
+        );
+
+        assert_eq!(CodexProvider::extract_text(output).as_deref(), Some("final answer"));
     }
 }

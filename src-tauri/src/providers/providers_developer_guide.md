@@ -5,7 +5,7 @@
 
 ## Current Providers
 - `claude.rs`: Builds Claude Code stream-json print commands, requests partial message chunks, and extracts `session_id` plus `result`.
-- `codex.rs`: Builds Codex CLI JSON-mode commands and extracts `thread_id` or `session_id` plus `result` or `output`.
+- `codex.rs`: Builds Codex CLI JSON-mode commands, translates model ids with optional `:<reasoning-effort>` suffixes into CLI arguments, and extracts `thread_id` or `session_id` plus nested assistant output from current Codex event payloads.
 - `mod.rs`: Re-exports provider adapters.
 
 ## Guardrails

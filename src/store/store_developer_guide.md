@@ -5,7 +5,7 @@
 
 ## Current Store
 - `chatStore.ts`: Single Zustand store for chat sessions, active selection, streaming updates, and derived session titles.
-- `chatStore.test.ts`: Coverage for session creation plus assistant streaming/finalization transitions.
+- `chatStore.test.ts`: Coverage for session creation, OpenAI/Codex model preservation, and assistant streaming/finalization transitions.
 
 ## State Rules
 - Every session is the source of truth for provider, model, transcript, CLI session id, and streaming status.
