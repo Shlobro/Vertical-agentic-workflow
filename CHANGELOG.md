@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Added native hover tooltips to the icon-only project-row controls in the sidebar and to chat-item controls, using concise labels such as `New chat`, `Open in File Explorer`, `Open in Terminal`, and `Settings`.
 - Added always-visible project-row actions to open the project root in File Explorer or a new Windows Terminal window, plus frontend and Rust coverage for the new launch commands.
 - Added `install.bat` to automate full dev-environment setup: installs Node.js LTS, Rust, MSVC Build Tools (C++ workload), WebView2 Runtime, Claude/Codex/Gemini CLIs, and project npm dependencies — skipping each step when already present.
 - Fixed the sidebar search scope popover layering so it stays above project and chat action menus when opened.

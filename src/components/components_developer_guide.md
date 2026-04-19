@@ -4,7 +4,7 @@
 `src/components/` holds the UI pieces that render the chat shell. Components are thin and mostly controlled by props; state that matters across the app belongs in Zustand or higher-level orchestration.
 
 ## Current Components
-- `Sidebar.tsx`: Project creation, project collapse state, nested chat navigation, inline rename editing for both projects and chats, always-visible project-row actions for new chat, File Explorer, and Windows Terminal, per-item action menus, per-chat provider icons in the session list, the right-edge resize handle, and a single-row header with a compact `+` new-project button beside the live search bar. The search scope menu is exposed through a distinct settings button embedded inside the search field and controls project-name, chat-name, and chat-content search. Width state and `Ctrl + wheel` zoom routing live in `App.tsx`; `Sidebar` only renders the handle and the tree.
+- `Sidebar.tsx`: Project creation, project collapse state, nested chat navigation, inline rename editing for both projects and chats, always-visible project-row actions for new chat, File Explorer, and Windows Terminal, per-item action menus, native hover tooltips on icon-only project and chat controls using concise generic labels such as `New chat`, `Open in File Explorer`, `Open in Terminal`, and `Settings`, per-chat provider icons in the session list, the right-edge resize handle, and a single-row header with a compact `+` new-project button beside the live search bar. The search scope menu is exposed through a distinct settings button embedded inside the search field and controls project-name, chat-name, and chat-content search. Width state and `Ctrl + wheel` zoom routing live in `App.tsx`; `Sidebar` only renders the handle and the tree.
 - `ConfirmDialog.tsx`: Themed in-app confirmation dialog used for destructive chat actions.
 - `MissingCompanionFilesDialog.tsx`: Themed in-app checklist dialog shown after choosing a project directory when the repo root is missing one or more of `CLAUDE.md`, `AGENTS.md`, or `GEMINI.md`. It also owns the shared-template editor, the restore-system-default action, and the remember-template checkbox.
 - `ChatView.tsx`: Transcript area plus no-session and no-message empty states. Accepts `highlightQuery` and `scrollToMessageId`, and renders transcript typography from the shared chat text-zoom variables.
@@ -14,7 +14,7 @@
 - `InputBar.test.tsx`: Coverage for keyboard submission, accessible labelling, cancel-state controls, the absence of a working-directory button, and `@` file mention completion.
 - `ConfirmDialog.test.tsx`: Coverage for themed destructive-confirmation rendering and button wiring.
 - `MissingCompanionFilesDialog.test.tsx`: Coverage for the companion-file checklist rendering, checkbox wiring, shared-template editor actions, and action buttons.
-- `Sidebar.test.tsx`: Coverage for project collapse, project rename, nested chat creation, File Explorer and Windows Terminal project actions, chat action wiring, per-session provider icon rendering, the resize handle contract, and the search bar.
+- `Sidebar.test.tsx`: Coverage for project collapse, project rename, nested chat creation, hover tooltip labels on project and chat controls, File Explorer and Windows Terminal project actions, chat action wiring, per-session provider icon rendering, the resize handle contract, and the search bar.
 
 ## Guardrails
 - Keep provider/model business rules out of visual components unless they are strictly presentational.

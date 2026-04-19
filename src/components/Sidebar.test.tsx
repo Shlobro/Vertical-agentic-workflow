@@ -83,7 +83,7 @@ describe("Sidebar", () => {
 
     renderSidebar({ onRenameProject });
 
-    fireEvent.click(screen.getByRole("button", { name: "Open actions for project Beta" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Settings" })[0]);
     fireEvent.click(screen.getByRole("button", { name: "Rename project" }));
 
     const input = screen.getByLabelText("Rename project");
@@ -98,7 +98,7 @@ describe("Sidebar", () => {
 
     renderSidebar({ activeSessionId: "session-1", onNewChat });
 
-    fireEvent.click(screen.getByRole("button", { name: "New chat in Alpha" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "New chat" })[1]);
 
     expect(onNewChat).toHaveBeenCalledWith("project-1");
   });
@@ -108,7 +108,7 @@ describe("Sidebar", () => {
 
     renderSidebar({ onOpenProjectFolder });
 
-    fireEvent.click(screen.getByRole("button", { name: "Open Alpha in File Explorer" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Open in File Explorer" })[1]);
 
     expect(onOpenProjectFolder).toHaveBeenCalledWith("project-1");
   });
@@ -118,9 +118,33 @@ describe("Sidebar", () => {
 
     renderSidebar({ onOpenProjectTerminal });
 
-    fireEvent.click(screen.getByRole("button", { name: "Open Alpha in Windows Terminal" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Open in Terminal" })[1]);
 
     expect(onOpenProjectTerminal).toHaveBeenCalledWith("project-1");
+  });
+
+  it("adds hover tooltips to project-row icon controls", () => {
+    renderSidebar({ activeSessionId: "session-1" });
+
+    expect(screen.getByRole("button", { name: "Collapse Alpha" }).getAttribute("title")).toBe(
+      "Collapse Alpha",
+    );
+    expect(screen.getAllByRole("button", { name: "New chat" })[1].getAttribute("title")).toBe("New chat");
+    expect(screen.getAllByRole("button", { name: "Open in File Explorer" })[1].getAttribute("title")).toBe(
+      "Open in File Explorer",
+    );
+    expect(screen.getAllByRole("button", { name: "Open in Terminal" })[1].getAttribute("title")).toBe(
+      "Open in Terminal",
+    );
+    expect(screen.getAllByRole("button", { name: "Settings" })[2].getAttribute("title")).toBe("Settings");
+  });
+
+  it("adds hover tooltips to chat items", () => {
+    renderSidebar({ activeSessionId: "session-1" });
+
+    const chatRowButton = screen.getByText("First chat").closest("button");
+    expect(chatRowButton?.getAttribute("title")).toBe("First chat");
+    expect(screen.getAllByRole("button", { name: "Settings" })[3].getAttribute("title")).toBe("Settings");
   });
 
   it("deletes a chat from the chat actions menu", () => {
@@ -128,7 +152,7 @@ describe("Sidebar", () => {
 
     renderSidebar({ activeSessionId: "session-1", onDeleteSession });
 
-    fireEvent.click(screen.getByRole("button", { name: "Open actions for First chat" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Settings" })[3]);
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
     expect(onDeleteSession).toHaveBeenCalledWith("session-1");

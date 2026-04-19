@@ -81,6 +81,26 @@ function isScopeEmpty(scope: SearchScope) {
   return !scope.projectNames && !scope.chatNames && !scope.chatContents;
 }
 
+function projectTooltipLabels(projectTitle: string) {
+  return {
+    toggle: {
+      collapsed: `Expand ${projectTitle}`,
+      expanded: `Collapse ${projectTitle}`,
+    },
+    newChat: "New chat",
+    openFolder: "Open in File Explorer",
+    openTerminal: "Open in Terminal",
+    actions: "Settings",
+  };
+}
+
+function sessionTooltipLabels(sessionTitle: string) {
+  return {
+    row: sessionTitle,
+    actions: "Settings",
+  };
+}
+
 function filterProjects(projects: ChatProject[], query: string, scope: SearchScope): FilteredProject[] {
   const q = query.trim().toLowerCase();
   const effective = scope;
@@ -394,6 +414,7 @@ export default function Sidebar({
         {[...filteredProjects].reverse().map(({ project, sessions: filteredSessions, projectMatches }) => {
           const editingProject = editingItem?.kind === "project" && editingItem.id === project.id;
           const isExpanded = isSearching ? true : !project.collapsed;
+          const projectTooltips = projectTooltipLabels(project.title);
 
           return (
             <div key={project.id} className="rounded-xl border border-transparent bg-transparent">
@@ -401,7 +422,12 @@ export default function Sidebar({
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
-                    aria-label={project.collapsed ? `Expand ${project.title}` : `Collapse ${project.title}`}
+                    aria-label={
+                      project.collapsed ? projectTooltips.toggle.collapsed : projectTooltips.toggle.expanded
+                    }
+                    title={
+                      project.collapsed ? projectTooltips.toggle.collapsed : projectTooltips.toggle.expanded
+                    }
                     onClick={() => !isSearching && onToggleProject(project.id)}
                     className="rounded-md p-1 text-text-muted hover:bg-surface-hover hover:text-text-primary"
                   >
@@ -440,7 +466,8 @@ export default function Sidebar({
 
                   <button
                     type="button"
-                    aria-label={`New chat in ${project.title}`}
+                    aria-label={projectTooltips.newChat}
+                    title={projectTooltips.newChat}
                     onClick={() => onNewChat(project.id)}
                     className="rounded-md p-1.5 text-text-muted hover:bg-surface-hover hover:text-text-primary"
                   >
@@ -449,7 +476,8 @@ export default function Sidebar({
 
                   <button
                     type="button"
-                    aria-label={`Open ${project.title} in File Explorer`}
+                    aria-label={projectTooltips.openFolder}
+                    title={projectTooltips.openFolder}
                     onClick={() => void onOpenProjectFolder(project.id)}
                     className="rounded-md p-1.5 text-text-muted hover:bg-surface-hover hover:text-text-primary"
                   >
@@ -458,7 +486,8 @@ export default function Sidebar({
 
                   <button
                     type="button"
-                    aria-label={`Open ${project.title} in Windows Terminal`}
+                    aria-label={projectTooltips.openTerminal}
+                    title={projectTooltips.openTerminal}
                     onClick={() => void onOpenProjectTerminal(project.id)}
                     className="rounded-md p-1.5 text-text-muted hover:bg-surface-hover hover:text-text-primary"
                   >
@@ -468,7 +497,8 @@ export default function Sidebar({
                   <div className="relative">
                     <button
                       type="button"
-                      aria-label={`Open actions for project ${project.title}`}
+                      aria-label={projectTooltips.actions}
+                      title={projectTooltips.actions}
                       onClick={() =>
                         setOpenMenuId((current) => (current === project.id ? null : project.id))
                       }
@@ -523,6 +553,7 @@ export default function Sidebar({
                   {filteredSessions.map(({ session, lastMatchingMessageId }) => {
                     const editingSession =
                       editingItem?.kind === "session" && editingItem.id === session.id;
+                    const sessionTooltips = sessionTooltipLabels(session.title);
                     const titleMatches =
                       isSearching &&
                       searchScope.chatNames &&
@@ -557,6 +588,7 @@ export default function Sidebar({
                             <button
                               type="button"
                               onClick={() => handleSessionClick(session.id, lastMatchingMessageId)}
+                              title={sessionTooltips.row}
                               className="flex flex-1 min-w-0 items-center gap-2 px-3 py-2 text-left"
                             >
                               {(() => {
@@ -590,7 +622,8 @@ export default function Sidebar({
                           <div className="relative pr-1">
                             <button
                               type="button"
-                              aria-label={`Open actions for ${session.title}`}
+                              aria-label={sessionTooltips.actions}
+                              title={sessionTooltips.actions}
                               onClick={() =>
                                 setOpenMenuId((current) =>
                                   current === session.id ? null : session.id,
