@@ -4,10 +4,10 @@ impl CodexProvider {
     pub fn build_command(
         model: &str,
         session_id: Option<&str>,
-        prompt: &str,
+        _prompt: &str,
     ) -> (String, Vec<String>) {
-        let mut args = vec![
-            "exec".to_string(),
+        let mut args = vec!["exec".to_string()];
+        let mut option_args = vec![
             "--skip-git-repo-check".to_string(),
             "--full-auto".to_string(),
             "--json".to_string(),
@@ -15,26 +15,33 @@ impl CodexProvider {
         let (actual_model, reasoning_effort) = split_model_and_reasoning_effort(model);
 
         if let Some(model) = actual_model {
-            args.push("--model".to_string());
-            args.push(model.to_string());
+            option_args.push("--model".to_string());
+            option_args.push(model.to_string());
         }
         if let Some(reasoning_effort) = reasoning_effort {
-            args.push("-c".to_string());
-            args.push(format!("model_reasoning_effort={reasoning_effort}"));
+            option_args.push("-c".to_string());
+            option_args.push(format!("model_reasoning_effort={reasoning_effort}"));
         }
-        if let Some(sid) = session_id {
+        if let Some(sid) = session_id.and_then(normalize_session_id) {
             if !sid.is_empty() {
                 args.push("resume".to_string());
+                args.append(&mut option_args);
                 args.push(sid.to_string());
+                args.push("-".to_string());
+                return ("codex".to_string(), args);
             }
         }
-        args.push(prompt.to_string());
+        args.append(&mut option_args);
+        args.push("-".to_string());
         ("codex".to_string(), args)
     }
 
     pub fn extract_session_id(json_str: &str) -> Option<String> {
         if let Ok(val) = serde_json::from_str::<serde_json::Value>(json_str) {
-            return find_thread_id(&val);
+            return find_thread_id(&val)
+                .as_deref()
+                .and_then(normalize_session_id)
+                .map(str::to_string);
         }
         None
     }
@@ -91,6 +98,28 @@ fn split_model_and_reasoning_effort(model: &str) -> (Option<&str>, Option<&str>)
     }
 
     (Some(model), None)
+}
+
+fn normalize_session_id(session_id: &str) -> Option<&str> {
+    let trimmed = session_id.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    if trimmed.contains(['\r', '\n', '\0']) {
+        return None;
+    }
+
+    let lower = trimmed.to_ascii_lowercase();
+    if lower.starts_with("error:")
+        || lower.starts_with("warning:")
+        || lower.starts_with("usage:")
+        || lower.starts_with("for more information")
+    {
+        return None;
+    }
+
+    Some(trimmed)
 }
 
 fn extract_codex_message(val: &serde_json::Value) -> Option<String> {
@@ -197,7 +226,7 @@ fn find_thread_id(val: &serde_json::Value) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::CodexProvider;
+    use super::{normalize_session_id, CodexProvider};
 
     #[test]
     fn build_command_uses_exec_json_mode() {
@@ -205,10 +234,46 @@ mod tests {
             CodexProvider::build_command("gpt-5.4:high", Some("thread-1"), "hello");
 
         assert_eq!(args[0], "exec");
+        assert_eq!(args[1], "resume");
         assert!(args.contains(&"--json".to_string()));
         assert!(args.contains(&"gpt-5.4".to_string()));
         assert!(args.contains(&"model_reasoning_effort=high".to_string()));
-        assert!(args.contains(&"resume".to_string()));
+        assert_eq!(args.last().map(String::as_str), Some("-"));
+    }
+
+    #[test]
+    fn build_command_keeps_non_resume_exec_order() {
+        let (_, args) = CodexProvider::build_command("gpt-5.4:high", None, "hello");
+
+        assert_eq!(args[0], "exec");
+        assert_eq!(args[1], "--skip-git-repo-check");
+        assert_eq!(args.last().map(String::as_str), Some("-"));
+    }
+
+    #[test]
+    fn build_command_skips_invalid_resume_session_id() {
+        let (_, args) = CodexProvider::build_command(
+            "gpt-5.4:high",
+            Some("error: unexpected argument 'keep' found"),
+            "hello",
+        );
+
+        assert_eq!(args[0], "exec");
+        assert_eq!(args[1], "--skip-git-repo-check");
+        assert!(!args.contains(&"resume".to_string()));
+    }
+
+    #[test]
+    fn normalize_session_id_rejects_diagnostic_text() {
+        assert_eq!(normalize_session_id("error: bad args"), None);
+        assert_eq!(normalize_session_id("warning: stale arg0 temp dirs"), None);
+        assert_eq!(normalize_session_id("Usage: codex exec resume"), None);
+        assert_eq!(normalize_session_id("thread-123\nerror: extra"), None);
+    }
+
+    #[test]
+    fn normalize_session_id_accepts_trimmed_thread_id() {
+        assert_eq!(normalize_session_id("  thread-123  "), Some("thread-123"));
     }
 
     #[test]

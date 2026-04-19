@@ -17,4 +17,4 @@
 - Validate project-root paths before launching external project utilities so sidebar actions fail clearly when a folder no longer exists.
 - Keep the process registry authoritative for cancellation. Any command that ends a request must remove its session entry and emit either `message-done` or `message-error`.
 - Keep stream parsing Unicode-safe because providers may emit partial text with non-ASCII content.
-- Provider launch failures should be actionable. On Windows, try common executable suffixes for CLIs installed as scripts, then fall back to launching through `cmd.exe`, and return a clear PATH/install error when the executable still cannot be resolved.
+- Provider launch failures should be actionable. On Windows, try common executable suffixes for CLIs installed as scripts, then fall back to launching through `cmd.exe` even when a direct `.cmd` or `.bat` spawn fails with invalid-argument style errors, and return a clear PATH/install error only when neither launch path resolves the CLI. Provider prompts should be piped through stdin instead of embedding user text in the `cmd.exe` command string so multiline prompts behave consistently across providers.

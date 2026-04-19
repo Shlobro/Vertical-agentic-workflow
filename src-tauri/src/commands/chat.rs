@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, State};
 use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 use tokio::sync::Mutex as AsyncMutex;
 
@@ -91,6 +92,14 @@ pub async fn send_message(
     let child = Arc::new(AsyncMutex::new(child));
     let (stdout, stderr) = {
         let mut child_guard = child.lock().await;
+        if provider_uses_stdin_prompt(&provider) {
+            if let Some(mut stdin) = child_guard.stdin.take() {
+                stdin
+                    .write_all(prompt.as_bytes())
+                    .await
+                    .map_err(|error| format!("Failed to write prompt to {exe} stdin: {error}"))?;
+            }
+        }
         let stdout = child_guard
             .stdout
             .take()
@@ -369,6 +378,10 @@ fn extract_session_id(provider: &str, json_str: &str) -> Option<String> {
     }
 }
 
+fn provider_uses_stdin_prompt(provider: &str) -> bool {
+    matches!(provider, "claude" | "codex" | "gemini")
+}
+
 fn merge_stream_text(existing: &str, incoming: &str) -> String {
     if incoming.is_empty() {
         return existing.to_string();
@@ -482,18 +495,24 @@ fn spawn_provider_process(
     {
         let direct_error = match try_spawn_candidates(exe, args, working_dir) {
             Ok(child) => return Ok(child),
-            Err(SpawnAttemptError::Missing(error)) => error,
-            Err(SpawnAttemptError::Failed(message)) => return Err(message),
+            Err(SpawnAttemptError::Missing(error)) => error.to_string(),
+            Err(SpawnAttemptError::Failed(message)) => message,
         };
 
         match spawn_provider_via_cmd(exe, args, working_dir) {
             Ok(child) => return Ok(child),
             Err(error) if error.kind() == ErrorKind::NotFound => {}
             Err(error) => {
-                return Err(format!("Failed to spawn {exe} via cmd.exe: {error}"));
+                return Err(format!(
+                    "Failed to spawn {exe} via cmd.exe after direct launch failed ({direct_error}): {error}"
+                ));
             }
         }
-        Err(format_missing_provider_error(provider, exe, Some(direct_error)))
+        Err(format_missing_provider_error(
+            provider,
+            exe,
+            Some(direct_error.as_str()),
+        ))
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -523,6 +542,7 @@ fn try_spawn_candidates(
         match Command::new(&candidate)
             .args(args)
             .current_dir(working_dir)
+            .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
@@ -574,6 +594,7 @@ fn spawn_provider_via_cmd(
     Command::new("cmd")
         .args(["/d", "/s", "/c", &command_line])
         .current_dir(working_dir)
+        .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
@@ -597,7 +618,7 @@ fn quote_for_cmd(value: &str) -> String {
 fn format_missing_provider_error(
     provider: &str,
     exe: &str,
-    error: Option<std::io::Error>,
+    error: Option<&str>,
 ) -> String {
     let provider_name = match provider {
         "codex" => "Codex CLI",
@@ -620,7 +641,8 @@ fn format_missing_provider_error(
 mod tests {
     use super::{
         executable_candidates, finalize_text, format_missing_provider_error, format_wait_error,
-        merge_stream_text, try_extract_stream_text, StreamState, WaitError,
+        merge_stream_text, provider_uses_stdin_prompt, try_extract_stream_text, StreamState,
+        WaitError,
     };
     use std::time::Duration;
 
@@ -687,6 +709,24 @@ mod tests {
     fn missing_codex_error_is_actionable() {
         let message = format_missing_provider_error("codex", "codex", None);
         assert!(message.contains("Codex CLI was not found on PATH"));
+    }
+
+    #[test]
+    fn missing_provider_error_includes_direct_launch_detail() {
+        let message = format_missing_provider_error(
+            "codex",
+            "codex",
+            Some("Failed to spawn codex.cmd: batch file arguments are invalid"),
+        );
+        assert!(message.contains("batch file arguments are invalid"));
+    }
+
+    #[test]
+    fn known_providers_use_stdin_for_prompts() {
+        assert!(provider_uses_stdin_prompt("claude"));
+        assert!(provider_uses_stdin_prompt("codex"));
+        assert!(provider_uses_stdin_prompt("gemini"));
+        assert!(!provider_uses_stdin_prompt("other"));
     }
 
     #[test]

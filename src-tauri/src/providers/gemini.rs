@@ -4,14 +4,14 @@ impl GeminiProvider {
     pub fn build_command(
         model: &str,
         session_id: Option<&str>,
-        prompt: &str,
+        _prompt: &str,
     ) -> (String, Vec<String>) {
         let mut args = vec![
             "--yolo".to_string(),
             "--output-format".to_string(),
             "stream-json".to_string(),
             "--prompt".to_string(),
-            prompt.to_string(),
+            String::new(),
         ];
         if !model.is_empty() {
             args.push("--model".to_string());
@@ -70,7 +70,7 @@ mod tests {
         assert_eq!(exe, "gemini");
         assert!(args.contains(&"--yolo".to_string()));
         assert!(args.contains(&"--prompt".to_string()));
-        assert!(args.contains(&"hello".to_string()));
+        assert!(args.contains(&String::new()));
         assert!(args.contains(&"stream-json".to_string()));
     }
 

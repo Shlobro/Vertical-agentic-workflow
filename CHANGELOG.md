@@ -1,6 +1,11 @@
 # Changelog
 
 ## Unreleased
+- Fixed Windows multiline prompt handling across Claude, Codex, and Gemini by piping provider prompts through stdin instead of embedding user text in fallback command lines.
+- Fixed Codex multiline follow-up prompts on Windows by sending Codex prompts through stdin instead of embedding them in the `cmd.exe` fallback command line.
+- Hardened Codex resume handling to ignore invalid persisted session ids such as prior CLI diagnostic text, preventing follow-up prompts from being sent as malformed `exec resume` commands.
+- Fixed Codex session resume command construction so `resume` is emitted immediately after `exec`, matching the CLI syntax and preventing prompt words from being parsed as unexpected arguments.
+- Fixed Windows Codex CLI resume launches so a direct `codex.cmd` spawn failure still retries through `cmd.exe` instead of surfacing `batch file arguments are invalid`.
 - Added native hover tooltips to the icon-only project-row controls in the sidebar and to chat-item controls, using concise labels such as `New chat`, `Open in File Explorer`, `Open in Terminal`, and `Settings`.
 - Added always-visible project-row actions to open the project root in File Explorer or a new Windows Terminal window, plus frontend and Rust coverage for the new launch commands.
 - Added `install.bat` to automate full dev-environment setup: installs Node.js LTS, Rust, MSVC Build Tools (C++ workload), WebView2 Runtime, Claude/Codex/Gemini CLIs, and project npm dependencies — skipping each step when already present.

@@ -4,7 +4,7 @@ impl ClaudeProvider {
     pub fn build_command(
         model: &str,
         session_id: Option<&str>,
-        prompt: &str,
+        _prompt: &str,
     ) -> (String, Vec<String>) {
         let mut args = vec![
             "--dangerously-skip-permissions".to_string(),
@@ -24,7 +24,6 @@ impl ClaudeProvider {
                 args.push(sid.to_string());
             }
         }
-        args.push(prompt.to_string());
         ("claude".to_string(), args)
     }
 
@@ -59,6 +58,7 @@ mod tests {
         assert!(args.contains(&"stream-json".to_string()));
         assert!(args.contains(&"--include-partial-messages".to_string()));
         assert!(args.contains(&"--resume".to_string()));
+        assert!(!args.contains(&"hello".to_string()));
     }
 }
 
