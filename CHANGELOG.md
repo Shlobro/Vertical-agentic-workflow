@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- Added always-visible project-row actions to open the project root in File Explorer or a new Windows Terminal window, plus frontend and Rust coverage for the new launch commands.
+- Added `install.bat` to automate full dev-environment setup: installs Node.js LTS, Rust, MSVC Build Tools (C++ workload), WebView2 Runtime, Claude/Codex/Gemini CLIs, and project npm dependencies — skipping each step when already present.
 - Fixed the sidebar search scope popover layering so it stays above project and chat action menus when opened.
 - Updated the sidebar header so the `+` new-project button sits to the left of the search bar on the same row, and moved the search scope control inside the search field with a distinct settings icon.
 - Fixed composer provider/model dropdown triggers so `Ctrl + mouse wheel` zoom scales their width, height, padding, and icons with the text while keeping the model trigger wider than the provider trigger and labels on one line.

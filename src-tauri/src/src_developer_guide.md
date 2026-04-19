@@ -6,13 +6,14 @@
 ## Folder Map
 - `main.rs`: Binary entry point delegating to the library crate.
 - `lib.rs`: Tauri builder setup and command registration for both provider execution and persistence commands.
-- `commands/`: Tauri commands callable from the frontend, including provider execution and local persistence.
+- `commands/`: Tauri commands callable from the frontend, including provider execution, local persistence, and Windows-native project launch actions.
 - `providers/`: Provider-specific command builders and response parsers.
 
 ## Guardrails
 - Keep `lib.rs` small and declarative.
 - Keep filesystem persistence in `commands/`, not in provider modules or frontend code. Workspace-level UI preferences that must survive restarts should persist through the same command layer, preferably as stable normalized values such as ratios or rem sizes instead of window-size-specific pixels.
 - Repo-root file inspection and creation for project onboarding also belong in `commands/` so the frontend remains declarative and testable.
+- Small OS-specific launch helpers for project-root utilities can also live in `commands/` when the frontend only needs a simple invoke contract.
 - Project-root file indexing for composer `@` completion also belongs in `commands/` so the frontend receives normalized relative paths instead of traversing the filesystem itself.
 - Put provider branching behind `commands/` and `providers/`, not in unrelated modules.
 - Treat provider process lifecycle and stdout/stderr parsing as fragile integration code: small, explicit helpers are easier to maintain than large generic abstractions.

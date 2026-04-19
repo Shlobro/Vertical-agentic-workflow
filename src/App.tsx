@@ -451,6 +451,28 @@ export default function App() {
     store.addSession(projectId, defaultProvider, defaultModel);
   }
 
+  async function handleOpenProjectFolder(projectId: string) {
+    const project = store.projects.find((item) => item.id === projectId);
+    if (!project) return;
+
+    try {
+      await invoke("open_project_in_file_explorer", { workingDir: project.workingDir });
+    } catch (error) {
+      console.error("Failed to open project in File Explorer", error);
+    }
+  }
+
+  async function handleOpenProjectTerminal(projectId: string) {
+    const project = store.projects.find((item) => item.id === projectId);
+    if (!project) return;
+
+    try {
+      await invoke("open_project_in_terminal", { workingDir: project.workingDir });
+    } catch (error) {
+      console.error("Failed to open project in Windows Terminal", error);
+    }
+  }
+
   function handleDeleteProject(projectId: string) {
     setPendingDelete({ kind: "project", id: projectId });
   }
@@ -698,6 +720,8 @@ export default function App() {
           activeSessionId={store.activeSessionId}
           onNewProject={handleNewProject}
           onNewChat={handleNewChat}
+          onOpenProjectFolder={handleOpenProjectFolder}
+          onOpenProjectTerminal={handleOpenProjectTerminal}
           onToggleProject={store.toggleProjectCollapsed}
           onSelectSession={handleSelectSession}
           onRenameProject={store.renameProject}

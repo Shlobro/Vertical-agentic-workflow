@@ -62,6 +62,8 @@ describe("Sidebar", () => {
         activeSessionId="session-2"
         onNewProject={vi.fn()}
         onNewChat={vi.fn()}
+        onOpenProjectFolder={vi.fn()}
+        onOpenProjectTerminal={vi.fn()}
         onToggleProject={vi.fn()}
         onSelectSession={vi.fn()}
         onRenameProject={vi.fn()}
@@ -99,6 +101,26 @@ describe("Sidebar", () => {
     fireEvent.click(screen.getByRole("button", { name: "New chat in Alpha" }));
 
     expect(onNewChat).toHaveBeenCalledWith("project-1");
+  });
+
+  it("opens the project folder from the project action row", () => {
+    const onOpenProjectFolder = vi.fn();
+
+    renderSidebar({ onOpenProjectFolder });
+
+    fireEvent.click(screen.getByRole("button", { name: "Open Alpha in File Explorer" }));
+
+    expect(onOpenProjectFolder).toHaveBeenCalledWith("project-1");
+  });
+
+  it("opens the project terminal from the project action row", () => {
+    const onOpenProjectTerminal = vi.fn();
+
+    renderSidebar({ onOpenProjectTerminal });
+
+    fireEvent.click(screen.getByRole("button", { name: "Open Alpha in Windows Terminal" }));
+
+    expect(onOpenProjectTerminal).toHaveBeenCalledWith("project-1");
   });
 
   it("deletes a chat from the chat actions menu", () => {

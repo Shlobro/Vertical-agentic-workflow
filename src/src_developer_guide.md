@@ -5,7 +5,7 @@
 
 ## Folder Map
 - `main.tsx`: React entry point.
-- `App.tsx`: Root composition, startup hydration, autosave orchestration, active-project file-index loading for composer mentions, shell-level `Ctrl + wheel` text-zoom routing, Tauri event subscription layer, and destructive-action confirmation flow.
+- `App.tsx`: Root composition, startup hydration, autosave orchestration, active-project file-index loading for composer mentions, project-row File Explorer and Windows Terminal launch handlers, shell-level `Ctrl + wheel` text-zoom routing, Tauri event subscription layer, and destructive-action confirmation flow.
 - `components/`: Presentational and interaction components.
 - `store/`: Zustand state container for projects, chat sessions, and message streaming.
 - `types/`: Shared frontend data contracts, persistence payloads, event payloads, and provider/model definitions.
@@ -15,7 +15,7 @@
 ## Frontend Data Flow
 1. `App.tsx` loads persisted workspace state through `load_workspace_state`, then reads the Zustand store and derives the active session through `activeSession()`.
 2. UI events call store actions directly for local state changes.
-3. `Sidebar.tsx` owns project-tree presentation details, including the compact single-row header that pairs the `+` new-project action with the search field and its embedded scope-settings control, while `App.tsx` owns destructive confirmation state plus the bounded left-sidebar width, per-surface text-zoom preferences, and the shell-level drag/wheel lifecycle.
+3. `Sidebar.tsx` owns project-tree presentation details, including the compact single-row header that pairs the `+` new-project action with the search field and its embedded scope-settings control plus the always-visible project-row actions for new chat, File Explorer, and Windows Terminal, while `App.tsx` owns destructive confirmation state plus the bounded left-sidebar width, per-surface text-zoom preferences, and the shell-level drag/wheel lifecycle.
 4. The shell persists the sidebar as a viewport ratio, stores transcript/composer/sidebar text sizes in workspace state, and derives sidebar pixels from the ratio while clamping between a fixed minimum and 75% of the current viewport.
 5. Choosing `New project` opens the folder picker first. After the user selects a folder, `App.tsx` asks Tauri which of `CLAUDE.md`, `AGENTS.md`, and `GEMINI.md` are missing in that project root. If any are missing, the shell opens an in-app checklist dialog, preselecting the user's remembered defaults, and can create the selected files before continuing.
 6. The active chat session owns the selected provider and model shown in `InputBar`. Changing either updates that session immediately, the provider/model trigger widths scale with composer zoom while the model trigger remains proportionally wider than the provider trigger, and the composer auto-grows with prompt length until the input panel reaches half of the viewport height.

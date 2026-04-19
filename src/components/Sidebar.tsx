@@ -4,11 +4,13 @@ import {
   ChevronRight,
   Ellipsis,
   Folder,
+  FolderOpen,
   MessageCirclePlus,
   Pencil,
   Plus,
   Search,
   SlidersHorizontal,
+  SquareTerminal,
   Trash2,
   X,
 } from "lucide-react";
@@ -23,6 +25,8 @@ interface Props {
   activeSessionId: string | null;
   onNewProject: () => void | Promise<void>;
   onNewChat: (projectId: string) => void;
+  onOpenProjectFolder: (projectId: string) => void | Promise<void>;
+  onOpenProjectTerminal: (projectId: string) => void | Promise<void>;
   onToggleProject: (projectId: string) => void;
   onSelectSession: (id: string) => void;
   onRenameProject: (projectId: string, title: string) => void;
@@ -134,6 +138,8 @@ export default function Sidebar({
   activeSessionId,
   onNewProject,
   onNewChat,
+  onOpenProjectFolder,
+  onOpenProjectTerminal,
   onToggleProject,
   onSelectSession,
   onRenameProject,
@@ -439,6 +445,24 @@ export default function Sidebar({
                     className="rounded-md p-1.5 text-text-muted hover:bg-surface-hover hover:text-text-primary"
                   >
                     <MessageCirclePlus size={14} />
+                  </button>
+
+                  <button
+                    type="button"
+                    aria-label={`Open ${project.title} in File Explorer`}
+                    onClick={() => void onOpenProjectFolder(project.id)}
+                    className="rounded-md p-1.5 text-text-muted hover:bg-surface-hover hover:text-text-primary"
+                  >
+                    <FolderOpen size={14} />
+                  </button>
+
+                  <button
+                    type="button"
+                    aria-label={`Open ${project.title} in Windows Terminal`}
+                    onClick={() => void onOpenProjectTerminal(project.id)}
+                    className="rounded-md p-1.5 text-text-muted hover:bg-surface-hover hover:text-text-primary"
+                  >
+                    <SquareTerminal size={14} />
                   </button>
 
                   <div className="relative">

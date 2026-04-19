@@ -4,7 +4,7 @@
 `src/components/` holds the UI pieces that render the chat shell. Components are thin and mostly controlled by props; state that matters across the app belongs in Zustand or higher-level orchestration.
 
 ## Current Components
-- `Sidebar.tsx`: Project creation, project collapse state, nested chat navigation, inline rename editing for both projects and chats, per-item action menus, per-chat provider icons in the session list, the right-edge resize handle, and a single-row header with a compact `+` new-project button beside the live search bar. The search scope menu is exposed through a distinct settings button embedded inside the search field and controls project-name, chat-name, and chat-content search. Width state and `Ctrl + wheel` zoom routing live in `App.tsx`; `Sidebar` only renders the handle and the tree.
+- `Sidebar.tsx`: Project creation, project collapse state, nested chat navigation, inline rename editing for both projects and chats, always-visible project-row actions for new chat, File Explorer, and Windows Terminal, per-item action menus, per-chat provider icons in the session list, the right-edge resize handle, and a single-row header with a compact `+` new-project button beside the live search bar. The search scope menu is exposed through a distinct settings button embedded inside the search field and controls project-name, chat-name, and chat-content search. Width state and `Ctrl + wheel` zoom routing live in `App.tsx`; `Sidebar` only renders the handle and the tree.
 - `ConfirmDialog.tsx`: Themed in-app confirmation dialog used for destructive chat actions.
 - `MissingCompanionFilesDialog.tsx`: Themed in-app checklist dialog shown after choosing a project directory when the repo root is missing one or more of `CLAUDE.md`, `AGENTS.md`, or `GEMINI.md`. It also owns the shared-template editor, the restore-system-default action, and the remember-template checkbox.
 - `ChatView.tsx`: Transcript area plus no-session and no-message empty states. Accepts `highlightQuery` and `scrollToMessageId`, and renders transcript typography from the shared chat text-zoom variables.
@@ -14,14 +14,14 @@
 - `InputBar.test.tsx`: Coverage for keyboard submission, accessible labelling, cancel-state controls, the absence of a working-directory button, and `@` file mention completion.
 - `ConfirmDialog.test.tsx`: Coverage for themed destructive-confirmation rendering and button wiring.
 - `MissingCompanionFilesDialog.test.tsx`: Coverage for the companion-file checklist rendering, checkbox wiring, shared-template editor actions, and action buttons.
-- `Sidebar.test.tsx`: Coverage for project collapse, project rename, nested chat creation, chat action wiring, per-session provider icon rendering, the resize handle contract, and the search bar.
+- `Sidebar.test.tsx`: Coverage for project collapse, project rename, nested chat creation, File Explorer and Windows Terminal project actions, chat action wiring, per-session provider icon rendering, the resize handle contract, and the search bar.
 
 ## Guardrails
 - Keep provider/model business rules out of visual components unless they are strictly presentational.
 - Keep sidebar width state and shell-level wheel handling in `App.tsx`; `Sidebar.tsx` should only render the handle and forward drag-start events.
 - New shared UI elements should enter this folder only if they are used by more than one screen or keep `App.tsx` simpler.
 - Preserve message rendering as plain text unless the product intentionally adopts markdown or rich content.
-- Keep icon-only controls labelled for assistive technology, and prefer tests that cover keyboard behavior when changing input affordances such as inline rename inputs, collapse toggles, and action menus.
+- Keep icon-only controls labelled for assistive technology, and prefer tests that cover project-row utility actions plus keyboard behavior when changing input affordances such as inline rename inputs, collapse toggles, and action menus.
 - Keep composer mention behavior keyboard-first. `ArrowUp` and `ArrowDown` should move the highlighted file suggestion, while `Tab` should insert the highlighted relative path followed by a trailing space into the textarea.
 - Keep composer mention popovers viewport-aware. If the composer is near the bottom edge, the file suggestion list should render above it instead of overflowing off-screen.
 - Destructive confirmations should prefer themed in-app UI over native system prompts when they are part of the main shell flow.

@@ -26,6 +26,8 @@ vi.mock("./components/Sidebar", () => ({
     onResizeStart,
     projects,
     onNewProject,
+    onOpenProjectFolder,
+    onOpenProjectTerminal,
     onDeleteProject,
     onDeleteSession,
   }: {
@@ -33,6 +35,8 @@ vi.mock("./components/Sidebar", () => ({
     onResizeStart: (event: ReactMouseEvent<HTMLDivElement>) => void;
     projects: Array<{ id: string; title: string; sessions: Array<{ id: string; title: string }> }>;
     onNewProject: () => void | Promise<void>;
+    onOpenProjectFolder: (id: string) => void | Promise<void>;
+    onOpenProjectTerminal: (id: string) => void | Promise<void>;
     onDeleteProject: (id: string) => void;
     onDeleteSession: (id: string) => void;
   }) => (
@@ -42,6 +46,8 @@ vi.mock("./components/Sidebar", () => ({
       <button onClick={() => void onNewProject()}>New project</button>
       {projects.map((project) => (
         <div key={project.id}>
+          <button onClick={() => void onOpenProjectFolder(project.id)}>Open folder {project.title}</button>
+          <button onClick={() => void onOpenProjectTerminal(project.id)}>Open terminal {project.title}</button>
           <button onClick={() => onDeleteProject(project.id)}>Delete project {project.title}</button>
           {project.sessions.map((session) => (
             <button key={session.id} onClick={() => onDeleteSession(session.id)}>
@@ -178,6 +184,36 @@ describe("App", () => {
 
     await waitFor(() => {
       expect(useChatStore.getState().projects).toHaveLength(0);
+    });
+  });
+
+  it("opens the project path in File Explorer from the sidebar action", async () => {
+    const store = useChatStore.getState();
+    store.addProject("D:\\Projects\\Alpha", "claude", "claude-sonnet-4-6");
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open folder Alpha" }));
+
+    await waitFor(() => {
+      expect(vi.mocked(invoke)).toHaveBeenCalledWith("open_project_in_file_explorer", {
+        workingDir: "D:\\Projects\\Alpha",
+      });
+    });
+  });
+
+  it("opens the project path in Windows Terminal from the sidebar action", async () => {
+    const store = useChatStore.getState();
+    store.addProject("D:\\Projects\\Alpha", "claude", "claude-sonnet-4-6");
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open terminal Alpha" }));
+
+    await waitFor(() => {
+      expect(vi.mocked(invoke)).toHaveBeenCalledWith("open_project_in_terminal", {
+        workingDir: "D:\\Projects\\Alpha",
+      });
     });
   });
 

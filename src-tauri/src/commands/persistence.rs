@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 const PROJECT_STATE_VERSION: u32 = 1;
 const REGISTRY_VERSION: u32 = 1;
 const PROJECT_STATE_DIR: &str = ".Vertical";
@@ -189,6 +190,18 @@ pub fn save_workspace_state(
 #[tauri::command]
 pub fn delete_project_state(working_dir: String) -> Result<(), String> {
     delete_project_state_at_path(Path::new(&working_dir))
+}
+
+#[tauri::command]
+pub fn open_project_in_file_explorer(working_dir: String) -> Result<(), String> {
+    let project_root = validate_project_directory(&working_dir)?;
+    spawn_detached_command(build_file_explorer_command(&project_root)?)
+}
+
+#[tauri::command]
+pub fn open_project_in_terminal(working_dir: String) -> Result<(), String> {
+    let project_root = validate_project_directory(&working_dir)?;
+    spawn_detached_command(build_terminal_command(&project_root)?)
 }
 
 fn executable_storage_root() -> Result<PathBuf, String> {
@@ -549,6 +562,53 @@ fn delete_project_state_at_path(project_root: &Path) -> Result<(), String> {
         .map_err(|error| format!("Failed to delete project storage '{}': {error}", vertical_dir.display()))
 }
 
+fn validate_project_directory(working_dir: &str) -> Result<PathBuf, String> {
+    let project_root = PathBuf::from(working_dir);
+    let metadata = fs::metadata(&project_root)
+        .map_err(|error| format!("Failed to access project directory '{}': {error}", project_root.display()))?;
+
+    if !metadata.is_dir() {
+        return Err(format!(
+            "Project path '{}' is not a directory",
+            project_root.display()
+        ));
+    }
+
+    Ok(project_root)
+}
+
+#[cfg(target_os = "windows")]
+fn build_file_explorer_command(project_root: &Path) -> Result<Command, String> {
+    let mut command = Command::new("explorer.exe");
+    command.arg(project_root);
+    Ok(command)
+}
+
+#[cfg(not(target_os = "windows"))]
+fn build_file_explorer_command(_project_root: &Path) -> Result<Command, String> {
+    Err("Opening projects in File Explorer is only supported on Windows".to_string())
+}
+
+#[cfg(target_os = "windows")]
+fn build_terminal_command(project_root: &Path) -> Result<Command, String> {
+    let mut command = Command::new("wt.exe");
+    command.arg("-d").arg(project_root);
+    command.current_dir(project_root);
+    Ok(command)
+}
+
+#[cfg(not(target_os = "windows"))]
+fn build_terminal_command(_project_root: &Path) -> Result<Command, String> {
+    Err("Opening projects in Windows Terminal is only supported on Windows".to_string())
+}
+
+fn spawn_detached_command(mut command: Command) -> Result<(), String> {
+    command
+        .spawn()
+        .map(|_| ())
+        .map_err(|error| format!("Failed to launch external application: {error}"))
+}
+
 fn write_json_file<T: Serialize>(path: &Path, value: &T) -> Result<(), String> {
     let content = serde_json::to_string_pretty(value)
         .map_err(|error| format!("Failed to serialize '{}': {error}", path.display()))?;
@@ -567,8 +627,8 @@ mod tests {
     use super::{
         collect_project_files, create_missing_companion_files, delete_project_state_at_path,
         load_workspace_state_from_root, missing_companion_files, project_vertical_dir,
-        save_workspace_state_to_root, PersistedMessage, PersistedProject, PersistedSession,
-        TextZoomState,
+        save_workspace_state_to_root, validate_project_directory, PersistedMessage,
+        PersistedProject, PersistedSession, TextZoomState,
     };
     use std::env;
     use std::fs;
@@ -744,5 +804,55 @@ mod tests {
                 "src/nested/thing.test.ts".to_string()
             ]
         );
+    }
+
+    #[test]
+    fn validates_existing_project_directory() {
+        let root = temp_root();
+
+        let validated = validate_project_directory(root.to_string_lossy().as_ref()).unwrap();
+
+        assert_eq!(validated, root);
+    }
+
+    #[test]
+    fn rejects_non_directory_project_path() {
+        let root = temp_root();
+        let file_path = root.join("README.md");
+        fs::write(&file_path, "docs").unwrap();
+
+        let error = validate_project_directory(file_path.to_string_lossy().as_ref()).unwrap_err();
+
+        assert!(error.contains("is not a directory"));
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn builds_windows_terminal_command_with_project_directory() {
+        let root = temp_root();
+        let command = super::build_terminal_command(&root).unwrap();
+        let program = command.get_program().to_string_lossy().to_string();
+        let args: Vec<String> = command
+            .get_args()
+            .map(|arg| arg.to_string_lossy().to_string())
+            .collect();
+
+        assert_eq!(program, "wt.exe");
+        assert_eq!(args, vec!["-d".to_string(), root.to_string_lossy().to_string()]);
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn builds_file_explorer_command_with_project_directory() {
+        let root = temp_root();
+        let command = super::build_file_explorer_command(&root).unwrap();
+        let program = command.get_program().to_string_lossy().to_string();
+        let args: Vec<String> = command
+            .get_args()
+            .map(|arg| arg.to_string_lossy().to_string())
+            .collect();
+
+        assert_eq!(program, "explorer.exe");
+        assert_eq!(args, vec![root.to_string_lossy().to_string()]);
     }
 }
