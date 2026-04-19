@@ -24,6 +24,7 @@ const projects: ChatProject[] = [
           { id: "msg-2", role: "assistant", text: "hello to you too" },
         ],
         isStreaming: false,
+        hasUnreadCompletion: true,
       },
     ],
   },
@@ -42,6 +43,7 @@ const projects: ChatProject[] = [
         cliSessionId: "",
         messages: [],
         isStreaming: true,
+        hasUnreadCompletion: false,
       },
     ],
   },
@@ -173,6 +175,17 @@ describe("Sidebar", () => {
 
     expect(screen.getByAltText("claude provider").getAttribute("src")).toBe(PROVIDER_ICONS.claude);
     expect(screen.getByAltText("codex provider").getAttribute("src")).toBe(PROVIDER_ICONS.codex);
+  });
+
+  it("shows a green glow for completed background chats and an orange glow for working chats", () => {
+    renderSidebar();
+
+    expect(screen.getByTestId("session-status-indicator-session-1").className).toContain(
+      "sidebar-session-indicator-complete",
+    );
+    expect(screen.getByTestId("session-status-indicator-session-2").className).toContain(
+      "sidebar-session-indicator-working",
+    );
   });
 
   it("applies the supplied width and exposes a resize handle", () => {

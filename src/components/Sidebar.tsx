@@ -101,6 +101,18 @@ function sessionTooltipLabels(sessionTitle: string) {
   };
 }
 
+function getSessionIndicatorClass(session: ChatSession) {
+  if (session.isStreaming) {
+    return "sidebar-session-indicator sidebar-session-indicator-working";
+  }
+
+  if (session.hasUnreadCompletion) {
+    return "sidebar-session-indicator sidebar-session-indicator-complete";
+  }
+
+  return "sidebar-session-indicator";
+}
+
 function filterProjects(projects: ChatProject[], query: string, scope: SearchScope): FilteredProject[] {
   const q = query.trim().toLowerCase();
   const effective = scope;
@@ -595,20 +607,27 @@ export default function Sidebar({
                                 const lastMsgProvider =
                                   [...session.messages].reverse().find((m) => m.provider)?.provider ??
                                   session.provider;
-                                return session.isStreaming ? (
-                                  <motion.img
-                                    src={PROVIDER_ICONS[lastMsgProvider]}
-                                    alt={`${lastMsgProvider} provider`}
-                                    className="h-[13px] w-[13px] flex-shrink-0 object-contain opacity-85"
-                                    animate={{ rotate: 360 }}
-                                    transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
-                                  />
-                                ) : (
-                                  <img
-                                    src={PROVIDER_ICONS[lastMsgProvider]}
-                                    alt={`${lastMsgProvider} provider`}
-                                    className="h-[13px] w-[13px] flex-shrink-0 object-contain opacity-85"
-                                  />
+                                return (
+                                  <span
+                                    data-testid={`session-status-indicator-${session.id}`}
+                                    className={getSessionIndicatorClass(session)}
+                                  >
+                                    {session.isStreaming ? (
+                                      <motion.img
+                                        src={PROVIDER_ICONS[lastMsgProvider]}
+                                        alt={`${lastMsgProvider} provider`}
+                                        className="h-[13px] w-[13px] flex-shrink-0 object-contain opacity-95"
+                                        animate={{ rotate: 360 }}
+                                        transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
+                                      />
+                                    ) : (
+                                      <img
+                                        src={PROVIDER_ICONS[lastMsgProvider]}
+                                        alt={`${lastMsgProvider} provider`}
+                                        className="h-[13px] w-[13px] flex-shrink-0 object-contain opacity-85"
+                                      />
+                                    )}
+                                  </span>
                                 );
                               })()}
                               <span className="truncate flex-1">

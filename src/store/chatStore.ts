@@ -12,6 +12,7 @@ function createSession(provider: Provider, model: string): ChatSession {
     cliSessionId: "",
     messages: [],
     isStreaming: false,
+    hasUnreadCompletion: false,
   };
 }
 
@@ -45,7 +46,13 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   hydrateWorkspace(state) {
     set({
-      projects: state.projects,
+      projects: state.projects.map((project) => ({
+        ...project,
+        sessions: project.sessions.map((session) => ({
+          ...session,
+          hasUnreadCompletion: session.hasUnreadCompletion ?? false,
+        })),
+      })),
       activeSessionId: state.activeSessionId,
     });
   },
@@ -72,16 +79,23 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   upsertProject(project, activateLoadedSession = true) {
     set((state) => {
+      const normalizedProject = {
+        ...project,
+        sessions: project.sessions.map((session) => ({
+          ...session,
+          hasUnreadCompletion: session.hasUnreadCompletion ?? false,
+        })),
+      };
       const existingIndex = state.projects.findIndex(
         (item) => item.workingDir.toLowerCase() === project.workingDir.toLowerCase()
       );
       const nextProjects =
         existingIndex === -1
-          ? [...state.projects, project]
-          : state.projects.map((item, index) => (index === existingIndex ? project : item));
+          ? [...state.projects, normalizedProject]
+          : state.projects.map((item, index) => (index === existingIndex ? normalizedProject : item));
       const nextActiveSessionId =
         activateLoadedSession
-          ? project.lastActiveSessionId ?? project.sessions[0]?.id ?? null
+          ? normalizedProject.lastActiveSessionId ?? normalizedProject.sessions[0]?.id ?? null
           : state.activeSessionId;
 
       return {
@@ -158,6 +172,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       activeSessionId: id,
       projects: state.projects.map((project) => ({
         ...project,
+        sessions: project.sessions.map((session) =>
+          session.id === id ? { ...session, hasUnreadCompletion: false } : session
+        ),
         lastActiveSessionId: project.sessions.some((session) => session.id === id)
           ? id
           : project.lastActiveSessionId,
@@ -291,6 +308,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             ...session,
             messages,
             isStreaming: false,
+            hasUnreadCompletion: state.activeSessionId !== sessionId,
             cliSessionId: cliSessionId || session.cliSessionId,
           };
         }),
@@ -303,7 +321,13 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       projects: state.projects.map((project) => ({
         ...project,
         sessions: project.sessions.map((session) =>
-          session.id === sessionId ? { ...session, isStreaming: streaming } : session
+          session.id === sessionId
+            ? {
+                ...session,
+                isStreaming: streaming,
+                hasUnreadCompletion: streaming ? false : session.hasUnreadCompletion ?? false,
+              }
+            : session
         ),
       })),
     }));

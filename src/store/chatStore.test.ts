@@ -23,6 +23,7 @@ describe("chatStore", () => {
       model: "claude-sonnet-4-6",
       messages: [],
       isStreaming: false,
+      hasUnreadCompletion: false,
     });
   });
 
@@ -67,6 +68,7 @@ describe("chatStore", () => {
       text: "Partial done",
       streaming: false,
     });
+    expect(updated.hasUnreadCompletion).toBe(false);
   });
 
   it("collapsing a project clears the active selection when needed", () => {
@@ -111,6 +113,7 @@ describe("chatStore", () => {
               cliSessionId: "",
               messages: [],
               isStreaming: false,
+              hasUnreadCompletion: false,
             },
             {
               id: "session-2",
@@ -120,6 +123,7 @@ describe("chatStore", () => {
               cliSessionId: "",
               messages: [],
               isStreaming: false,
+              hasUnreadCompletion: false,
             },
           ],
         },
@@ -174,5 +178,45 @@ describe("chatStore", () => {
       model: "gpt-5.4",
       cliSessionId: "claude-session-1",
     });
+  });
+
+  it("marks a background chat as completed-unread until it is opened", () => {
+    const store = useChatStore.getState();
+    const first = store.addProject("D:\\Projects\\Alpha", "claude", "claude-sonnet-4-6");
+    store.addProject("D:\\Projects\\Beta", "codex", "gpt-5.4");
+    const backgroundSessionId = first.sessions[0].id;
+
+    store.finalizeAssistant(backgroundSessionId, "Done", "thread-1");
+
+    let backgroundSession = useChatStore
+      .getState()
+      .projects[0]
+      .sessions.find((session) => session.id === backgroundSessionId);
+    expect(backgroundSession?.hasUnreadCompletion).toBe(true);
+
+    store.setActiveSession(backgroundSessionId);
+
+    backgroundSession = useChatStore
+      .getState()
+      .projects[0]
+      .sessions.find((session) => session.id === backgroundSessionId);
+    expect(backgroundSession?.hasUnreadCompletion).toBe(false);
+  });
+
+  it("clears any completed glow when a chat starts streaming again", () => {
+    const store = useChatStore.getState();
+    const first = store.addProject("D:\\Projects\\Alpha", "claude", "claude-sonnet-4-6");
+    store.addProject("D:\\Projects\\Beta", "codex", "gpt-5.4");
+    const sessionId = first.sessions[0].id;
+
+    store.finalizeAssistant(sessionId, "Done", "thread-1");
+    store.setStreaming(sessionId, true);
+
+    const updated = useChatStore
+      .getState()
+      .projects[0]
+      .sessions.find((session) => session.id === sessionId);
+    expect(updated?.isStreaming).toBe(true);
+    expect(updated?.hasUnreadCompletion).toBe(false);
   });
 });

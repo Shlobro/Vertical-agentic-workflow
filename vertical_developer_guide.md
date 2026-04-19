@@ -26,7 +26,7 @@ Vertical is a desktop chat client built with Tauri, React, TypeScript, and Rust.
 
 ## Current Frontend Shape
 - The layout is a two-column shell with a draggable left sidebar: a compact header row with project creation and search controls on the left, conversation on the right.
-- Each sidebar project row exposes a collapse arrow, folder icon, persistent new-chat button, persistent open-in-File-Explorer button, persistent open-in-Windows-Terminal button, and an actions menu for inline rename plus delete. Chat rows show the session provider icon and keep their own rename and delete menu.
+- Each sidebar project row exposes a collapse arrow, folder icon, persistent new-chat button, persistent open-in-File-Explorer button, persistent open-in-Windows-Terminal button, and an actions menu for inline rename plus delete. Chat rows show the session provider icon, use subtle orange and green glows to signal working and background-completed states, and keep their own rename and delete menu.
 - `ChatView` handles three empty states: no active session, active session with no messages, and active session with transcript.
 - `MessageBubble` animates message entry, keeps long unbroken transcript content wrapped inside bubble bounds, and uses the provider spinner as the assistant streaming indicator both for empty placeholders and inline at the end of partial assistant text.
 - `InputBar` handles enter-to-send, docs-style list continuation on `Shift + Enter` for start-of-line `1.`, `1)`, and `-` markers, textarea auto-growth up to a 50%-of-viewport composer cap, provider/model selection, cancellation of the active provider request, composer text scaling through the shared workspace text-zoom preferences, and `@` file-path completion sourced from the active project's file index. Ordered lists renumber live across contiguous blocks, and the composer stays hidden until a chat is selected.
@@ -44,7 +44,7 @@ Vertical is a desktop chat client built with Tauri, React, TypeScript, and Rust.
 ## Change Map
 - Application shell, workspace hydration, and autosave orchestration: `src/App.tsx`
 - Project tree, nested chat controls, and resize handle rendering: `src/components/Sidebar.tsx`
-- Project/session state transitions: `src/store/chatStore.ts`
+- Project/session state transitions, including sidebar completion-indicator state: `src/store/chatStore.ts`
 - Shared TypeScript contracts, event payloads, and model catalog: `src/types/index.ts`
 - Tauri bootstrap and command registration: `src-tauri/src/lib.rs`, `src-tauri/src/main.rs`
 - Persistence command and on-disk schema: `src-tauri/src/commands/persistence.rs`

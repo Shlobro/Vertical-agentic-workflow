@@ -19,6 +19,7 @@ export interface ChatSession {
   cliSessionId: string;
   messages: Message[];
   isStreaming: boolean;
+  hasUnreadCompletion?: boolean;
 }
 
 export interface ChatProject {
