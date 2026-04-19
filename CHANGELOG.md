@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Added docs-style main-composer list continuation for start-of-line `1.`, `1)`, and `-` markers. `Shift + Enter` now continues lists, empty auto-inserted markers can be cleared with `Backspace` or another `Shift + Enter`, and ordered lists renumber live across contiguous list blocks.
 - Replaced the glowing `|` at the end of streaming assistant chat bubbles with the existing inline spinning provider logo, keeping the spinner visible until the response finishes.
 - Fixed desktop chat bubbles so long unbroken strings such as Windows paths wrap inside the bubble instead of overflowing past the bubble edge.
 - Fixed Windows multiline prompt handling across Claude, Codex, and Gemini by piping provider prompts through stdin instead of embedding user text in fallback command lines.

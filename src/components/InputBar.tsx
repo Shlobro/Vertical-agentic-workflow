@@ -26,11 +26,33 @@ interface MentionState {
   options: MentionOption[];
 }
 
+interface TextSelectionUpdate {
+  text: string;
+  selectionStart: number;
+  selectionEnd: number;
+}
+
+type ListLineInfo =
+  | {
+      type: "ordered";
+      number: number;
+      delimiter: "." | ")";
+      marker: string;
+      isEmpty: boolean;
+    }
+  | {
+      type: "unordered";
+      marker: typeof UNORDERED_LIST_MARKER;
+      isEmpty: boolean;
+    };
+
 const MAX_INPUT_BAR_HEIGHT_RATIO = 0.5;
 const MAX_MENTION_OPTIONS = 8;
 const DEFAULT_MENTION_LIST_MAX_HEIGHT = 224;
 const MIN_MENTION_LIST_MAX_HEIGHT = 96;
 const MENTION_LIST_VIEWPORT_MARGIN = 16;
+const ORDERED_LIST_MARKER_PATTERN = /^(\d+)([.)]) $/;
+const UNORDERED_LIST_MARKER = "- ";
 
 export default function InputBar({
   streaming,
@@ -47,6 +69,7 @@ export default function InputBar({
   const containerRef = useRef<HTMLDivElement>(null);
   const providerDropdownRef = useRef<HTMLDivElement>(null);
   const modelDropdownRef = useRef<HTMLDivElement>(null);
+  const pendingSelectionRef = useRef<{ start: number; end: number } | null>(null);
   const mentionListId = useId();
   const [providerOpen, setProviderOpen] = useState(false);
   const [modelOpen, setModelOpen] = useState(false);
@@ -124,7 +147,20 @@ export default function InputBar({
     };
   }, []);
 
+  useEffect(() => {
+    if (!pendingSelectionRef.current || !ref.current) {
+      return;
+    }
+
+    const nextSelection = pendingSelectionRef.current;
+    pendingSelectionRef.current = null;
+    ref.current.selectionStart = nextSelection.start;
+    ref.current.selectionEnd = nextSelection.end;
+  }, [text]);
+
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    const textarea = event.currentTarget;
+
     if (mentionState && mentionState.options.length > 0) {
       if (event.key === "ArrowDown") {
         event.preventDefault();
@@ -149,6 +185,27 @@ export default function InputBar({
         setMentionState(null);
         return;
       }
+    }
+
+    if (event.key === "Backspace" && !streaming) {
+      const nextListRemoval = getListMarkerRemoval(textarea.value, textarea.selectionStart, textarea.selectionEnd);
+      if (nextListRemoval) {
+        event.preventDefault();
+        applyTextUpdate(nextListRemoval.text, nextListRemoval.selectionStart, nextListRemoval.selectionEnd);
+        return;
+      }
+    }
+
+    if (event.key === "Enter" && event.shiftKey && !streaming) {
+      event.preventDefault();
+      const nextListContinuation = getListContinuation(textarea.value, textarea.selectionStart, textarea.selectionEnd);
+      if (nextListContinuation) {
+        applyTextUpdate(nextListContinuation.text, nextListContinuation.selectionStart, nextListContinuation.selectionEnd);
+        return;
+      }
+
+      insertPlainNewline(textarea.value, textarea.selectionStart, textarea.selectionEnd);
+      return;
     }
 
     if (event.key === "Enter" && !event.shiftKey) {
@@ -189,8 +246,27 @@ export default function InputBar({
     });
   }
 
-  function autoResize(nextValue: string) {
+  function applyTextUpdate(nextValue: string, selectionStart?: number, selectionEnd?: number) {
+    if (typeof selectionStart === "number" && typeof selectionEnd === "number") {
+      pendingSelectionRef.current = { start: selectionStart, end: selectionEnd };
+    }
     resizeTextarea(nextValue);
+  }
+
+  function autoResize(nextValue: string, selectionStart?: number, selectionEnd?: number) {
+    if (typeof selectionStart === "number" && typeof selectionEnd === "number") {
+      const normalized = normalizeOrderedLists(nextValue, selectionStart, selectionEnd);
+      applyTextUpdate(normalized.text, normalized.selectionStart, normalized.selectionEnd);
+      return;
+    }
+
+    resizeTextarea(nextValue);
+  }
+
+  function insertPlainNewline(currentText: string, selectionStart: number, selectionEnd: number) {
+    const nextText = `${currentText.slice(0, selectionStart)}\n${currentText.slice(selectionEnd)}`;
+    const nextCursorPosition = selectionStart + 1;
+    applyTextUpdate(nextText, nextCursorPosition, nextCursorPosition);
   }
 
   function selectProvider(nextProvider: Provider) {
@@ -268,7 +344,9 @@ export default function InputBar({
           onKeyDown={handleKeyDown}
           onClick={() => setMentionState(getMentionState(text, ref.current?.selectionStart ?? text.length, projectFilePaths))}
           onKeyUp={() => setMentionState(getMentionState(text, ref.current?.selectionStart ?? text.length, projectFilePaths))}
-          onChange={(event) => autoResize(event.target.value)}
+          onChange={(event) =>
+            autoResize(event.target.value, event.target.selectionStart ?? event.target.value.length, event.target.selectionEnd ?? event.target.value.length)
+          }
           className="chat-input-font input-font-base mb-2 w-full resize-none overflow-y-auto bg-transparent text-text-primary outline-none placeholder-text-muted"
           aria-autocomplete="list"
           aria-controls={mentionOpen ? mentionListId : undefined}
@@ -514,6 +592,198 @@ function scoreMentionPath(path: string, query: string) {
   }
   if (normalizedPath.includes(query)) {
     return 50 - normalizedPath.indexOf(query);
+  }
+
+  return null;
+}
+
+function normalizeOrderedLists(text: string, selectionStart: number, selectionEnd: number) {
+  const lines = text.split("\n");
+  const normalizedLines: string[] = [];
+  let nextOrderedNumber = 1;
+  let nextSelectionStart = selectionStart;
+  let nextSelectionEnd = selectionEnd;
+  let sourceOffset = 0;
+
+  for (const line of lines) {
+    const orderedMatch = line.match(/^(\d+)([.)]) (.*)$/);
+    let normalizedLine = line;
+
+    if (orderedMatch) {
+      const [, originalNumber, delimiter, content] = orderedMatch;
+      normalizedLine = `${nextOrderedNumber}${delimiter} ${content}`;
+      nextOrderedNumber += 1;
+
+      const originalMarkerLength = `${originalNumber}${delimiter} `.length;
+      const normalizedMarkerLength = `${nextOrderedNumber - 1}${delimiter} `.length;
+      const lineStart = sourceOffset;
+      const markerEnd = lineStart + originalMarkerLength;
+
+      nextSelectionStart = adjustSelectionForMarkerRewrite(
+        nextSelectionStart,
+        lineStart,
+        markerEnd,
+        normalizedMarkerLength - originalMarkerLength,
+        normalizedMarkerLength,
+      );
+      nextSelectionEnd = adjustSelectionForMarkerRewrite(
+        nextSelectionEnd,
+        lineStart,
+        markerEnd,
+        normalizedMarkerLength - originalMarkerLength,
+        normalizedMarkerLength,
+      );
+    } else {
+      nextOrderedNumber = 1;
+    }
+
+    normalizedLines.push(normalizedLine);
+    sourceOffset += line.length + 1;
+  }
+
+  const normalizedText = normalizedLines.join("\n");
+
+  return {
+    text: normalizedText,
+    selectionStart: Math.max(0, Math.min(nextSelectionStart, normalizedText.length)),
+    selectionEnd: Math.max(0, Math.min(nextSelectionEnd, normalizedText.length)),
+  };
+}
+
+function adjustSelectionForMarkerRewrite(
+  selection: number,
+  markerStart: number,
+  markerEnd: number,
+  lengthDifference: number,
+  normalizedMarkerLength: number,
+) {
+  if (selection <= markerStart) {
+    return selection;
+  }
+
+  if (selection >= markerEnd) {
+    return selection + lengthDifference;
+  }
+
+  const offsetInsideMarker = selection - markerStart;
+  return markerStart + Math.min(offsetInsideMarker, normalizedMarkerLength);
+}
+
+function getListContinuation(text: string, selectionStart: number, selectionEnd: number): TextSelectionUpdate | null {
+  const currentLineRange = getLineRange(text, selectionStart, selectionEnd);
+  const currentLine = text.slice(currentLineRange.start, currentLineRange.end);
+  const currentListInfo = parseListLine(currentLine);
+
+  if (!currentListInfo) {
+    return null;
+  }
+
+  if (selectionStart !== selectionEnd) {
+    return {
+      text: `${text.slice(0, selectionStart)}\n${text.slice(selectionEnd)}`,
+      selectionStart: selectionStart + 1,
+      selectionEnd: selectionStart + 1,
+    };
+  }
+
+  if (currentListInfo.isEmpty) {
+    const nextText = `${text.slice(0, currentLineRange.start)}${text.slice(currentLineRange.end)}`;
+    const insertionPoint = currentLineRange.start;
+    const nextValue = `${nextText.slice(0, insertionPoint)}\n${nextText.slice(insertionPoint)}`;
+    const nextCursorPosition = insertionPoint + 1;
+    return {
+      text: nextValue,
+      selectionStart: nextCursorPosition,
+      selectionEnd: nextCursorPosition,
+    };
+  }
+
+  const nextMarker = currentListInfo.type === "unordered"
+    ? UNORDERED_LIST_MARKER
+    : `${currentListInfo.number + 1}${currentListInfo.delimiter} `;
+  const insertionPoint = selectionStart;
+  const nextText = `${text.slice(0, insertionPoint)}\n${nextMarker}${text.slice(insertionPoint)}`;
+  const nextCursorPosition = insertionPoint + 1 + nextMarker.length;
+
+  return {
+    text: nextText,
+    selectionStart: nextCursorPosition,
+    selectionEnd: nextCursorPosition,
+  };
+}
+
+function getListMarkerRemoval(text: string, selectionStart: number, selectionEnd: number): TextSelectionUpdate | null {
+  if (selectionStart !== selectionEnd) {
+    return null;
+  }
+
+  const currentLineRange = getLineRange(text, selectionStart, selectionEnd);
+  const currentLine = text.slice(currentLineRange.start, currentLineRange.end);
+  const currentListInfo = parseListLine(currentLine);
+
+  if (!currentListInfo || !currentListInfo.isEmpty) {
+    return null;
+  }
+
+  const cursorOffsetInLine = selectionStart - currentLineRange.start;
+  if (cursorOffsetInLine <= 0 || cursorOffsetInLine > currentListInfo.marker.length) {
+    return null;
+  }
+
+  return {
+    text: `${text.slice(0, currentLineRange.start)}${text.slice(currentLineRange.end)}`,
+    selectionStart: currentLineRange.start,
+    selectionEnd: currentLineRange.start,
+  };
+}
+
+function getLineRange(text: string, selectionStart: number, selectionEnd: number) {
+  const safeSelectionStart = Math.max(0, Math.min(selectionStart, text.length));
+  const safeSelectionEnd = Math.max(0, Math.min(selectionEnd, text.length));
+  const start = text.lastIndexOf("\n", safeSelectionStart - 1) + 1;
+  const lineEndIndex = text.indexOf("\n", safeSelectionEnd);
+  const end = lineEndIndex === -1 ? text.length : lineEndIndex;
+
+  return { start, end };
+}
+
+function parseListLine(line: string): ListLineInfo | null {
+  if (line.startsWith(UNORDERED_LIST_MARKER)) {
+    return {
+      type: "unordered" as const,
+      marker: UNORDERED_LIST_MARKER,
+      isEmpty: line === UNORDERED_LIST_MARKER,
+    };
+  }
+
+  const orderedMatch = line.match(ORDERED_LIST_MARKER_PATTERN);
+  if (orderedMatch) {
+    return {
+      type: "ordered" as const,
+      number: Number(orderedMatch[1]),
+      delimiter: orderedMatch[2] as "." | ")",
+      marker: orderedMatch[0],
+      isEmpty: true,
+    };
+  }
+
+  const orderedContentMatch = line.match(/^(\d+)([.)]) (.+)$/);
+  if (orderedContentMatch) {
+    return {
+      type: "ordered" as const,
+      number: Number(orderedContentMatch[1]),
+      delimiter: orderedContentMatch[2] as "." | ")",
+      marker: `${orderedContentMatch[1]}${orderedContentMatch[2]} `,
+      isEmpty: false,
+    };
+  }
+
+  if (/^- .+$/.test(line)) {
+    return {
+      type: "unordered" as const,
+      marker: UNORDERED_LIST_MARKER,
+      isEmpty: false,
+    };
   }
 
   return null;

@@ -14,6 +14,11 @@ describe("InputBar", () => {
   });
 
   function renderBar(overrides: Partial<Parameters<typeof InputBar>[0]> = {}) {
+    window.requestAnimationFrame = ((callback: FrameRequestCallback) => {
+      callback(0);
+      return 0;
+    }) as typeof window.requestAnimationFrame;
+
     const defaults = {
       streaming: false,
       provider: "claude" as const,
@@ -49,6 +54,78 @@ describe("InputBar", () => {
     fireEvent.keyDown(textarea, { key: "Enter", code: "Enter" });
     expect(onSend).toHaveBeenCalledWith("hello world");
     expect(textarea.value).toBe("");
+  });
+
+  it("continues ordered lists on Shift+Enter and keeps numbering normalized", () => {
+    renderBar();
+    const textarea = screen.getByLabelText("Message") as HTMLTextAreaElement;
+
+    fireEvent.change(textarea, { target: { value: "1. first" } });
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    fireEvent.keyDown(textarea, { key: "Enter", code: "Enter", shiftKey: true });
+
+    expect(textarea.value).toBe("1. first\n2. ");
+
+    fireEvent.change(textarea, { target: { value: "1. first\n9. second\n11. third" } });
+
+    expect(textarea.value).toBe("1. first\n2. second\n3. third");
+  });
+
+  it("continues ordered lists that use the parenthesis marker", () => {
+    renderBar();
+    const textarea = screen.getByLabelText("Message") as HTMLTextAreaElement;
+
+    fireEvent.change(textarea, { target: { value: "1) first" } });
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    fireEvent.keyDown(textarea, { key: "Enter", code: "Enter", shiftKey: true });
+
+    expect(textarea.value).toBe("1) first\n2) ");
+  });
+
+  it("continues unordered dash lists on Shift+Enter", () => {
+    renderBar();
+    const textarea = screen.getByLabelText("Message") as HTMLTextAreaElement;
+
+    fireEvent.change(textarea, { target: { value: "- first" } });
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    fireEvent.keyDown(textarea, { key: "Enter", code: "Enter", shiftKey: true });
+
+    expect(textarea.value).toBe("- first\n- ");
+  });
+
+  it("removes an empty auto-inserted list marker with Backspace", () => {
+    renderBar();
+    const textarea = screen.getByLabelText("Message") as HTMLTextAreaElement;
+
+    fireEvent.change(textarea, { target: { value: "1. first\n2. " } });
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    fireEvent.keyDown(textarea, { key: "Backspace", code: "Backspace" });
+
+    expect(textarea.value).toBe("1. first\n");
+    expect(textarea.selectionStart).toBe("1. first\n".length);
+  });
+
+  it("turns an empty list marker into a blank line on Shift+Enter", () => {
+    renderBar();
+    const textarea = screen.getByLabelText("Message") as HTMLTextAreaElement;
+
+    fireEvent.change(textarea, { target: { value: "1. first\n2. " } });
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    fireEvent.keyDown(textarea, { key: "Enter", code: "Enter", shiftKey: true });
+
+    expect(textarea.value).toBe("1. first\n\n");
+    expect(textarea.selectionStart).toBe("1. first\n\n".length);
+  });
+
+  it("only starts list behavior when the marker is at the start of a line", () => {
+    renderBar();
+    const textarea = screen.getByLabelText("Message") as HTMLTextAreaElement;
+
+    fireEvent.change(textarea, { target: { value: "hello 1. first" } });
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    fireEvent.keyDown(textarea, { key: "Enter", code: "Enter", shiftKey: true });
+
+    expect(textarea.value).toBe("hello 1. first\n");
   });
 
   it("shows a labelled cancel button while streaming", () => {
