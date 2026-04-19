@@ -1,7 +1,11 @@
 when the model is in the middle of outputting there is this char '|' glowing a bit. i want the spinning logo to be there at the end of the bubble until the model is done.
 
-when i put a really long line with no spaces like a long path then it does not wrap around in the chat bubble and exits it which is bad UI
-
 you know how in google docs or things like that if i type "1." then it starts a list right away and the next time i click Enter (or in our case SHIFT + ENTER) it will automatically type "2. " until i click backspace or another Enter? i want that in our chat
 
 Need a clearer UI feature in the side panel where the chats are to show when a chat is in the middle of "working"
+
+I had a chat running and even though it was not done the spinning logo on the side panel stopped spinning. i may have exited and entered the chat once or twice.
+
+sometimes the model (i was using openAI when i noticed this) outputs in chunks. so it will output a section of something it is considering or doing. and then after the next thing it is doing. when this happens i want it in seperate paragraphs.
+
+need the ability to do some git actions and create a commit message

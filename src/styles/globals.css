@@ -97,6 +97,11 @@ body {
   font-size: var(--sidebar-font-size-small);
 }
 
+.message-bubble-wrap {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 /* Select styling */
 select option {
   background-color: #1a1a27;

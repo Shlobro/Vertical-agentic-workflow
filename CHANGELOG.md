@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Fixed desktop chat bubbles so long unbroken strings such as Windows paths wrap inside the bubble instead of overflowing past the bubble edge.
 - Fixed Windows multiline prompt handling across Claude, Codex, and Gemini by piping provider prompts through stdin instead of embedding user text in fallback command lines.
 - Fixed Codex multiline follow-up prompts on Windows by sending Codex prompts through stdin instead of embedding them in the `cmd.exe` fallback command line.
 - Hardened Codex resume handling to ignore invalid persisted session ids such as prior CLI diagnostic text, preventing follow-up prompts from being sent as malformed `exec resume` commands.

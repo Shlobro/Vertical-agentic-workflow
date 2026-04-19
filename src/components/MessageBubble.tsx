@@ -37,7 +37,7 @@ export default function MessageBubble({ message, sessionProvider, highlightQuery
       )}
       <div
         className={`
-          chat-font-base max-w-[70%] rounded-2xl px-4 py-3 whitespace-pre-wrap select-text
+          message-bubble-wrap chat-font-base min-w-0 max-w-[70%] rounded-2xl px-4 py-3 whitespace-pre-wrap select-text
           ${isUser
             ? "bg-blue-600 text-white rounded-br-sm"
             : "bg-surface text-text-primary rounded-bl-sm border border-border"
@@ -81,7 +81,7 @@ function HandoffBlock({ message }: { message: Message }) {
           />
         </button>
         {open && (
-          <div className="chat-font-small px-3 pb-3 text-text-muted whitespace-pre-wrap border-t border-border pt-2 max-h-48 overflow-y-auto">
+          <div className="message-bubble-wrap chat-font-small px-3 pb-3 text-text-muted whitespace-pre-wrap border-t border-border pt-2 max-h-48 overflow-y-auto">
             {message.text.replace(/^You are an AI assistant taking over.*?Here is the conversation so far:\n\n/s, "")}
           </div>
         )}

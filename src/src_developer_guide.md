@@ -9,7 +9,7 @@
 - `components/`: Presentational and interaction components.
 - `store/`: Zustand state container for projects, chat sessions, and message streaming.
 - `types/`: Shared frontend data contracts, persistence payloads, event payloads, and provider/model definitions.
-- `styles/`: Tailwind v4 import and theme tokens.
+- `styles/`: Tailwind v4 import, theme tokens, and shared transcript text-containment helpers.
 - `assets/`: Imported frontend image assets plus the shared provider-icon lookup used by multiple components.
 
 ## Frontend Data Flow
