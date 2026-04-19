@@ -51,7 +51,9 @@ export default function MessageBubble({ message, sessionProvider, highlightQuery
             {highlightQuery
               ? renderHighlighted(message.text, highlightQuery)
               : message.text}
-            {message.streaming && <span className="animate-pulse ml-1" aria-hidden="true">|</span>}
+            {message.streaming && resolvedProvider && (
+              <ProviderSpinner provider={resolvedProvider} inline />
+            )}
           </>
         )}
       </div>
@@ -116,9 +118,12 @@ function escapeRegex(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function ProviderSpinner({ provider }: { provider: Provider }) {
+function ProviderSpinner({ provider, inline = false }: { provider: Provider; inline?: boolean }) {
   return (
-    <div className="flex items-center justify-center h-5 w-5">
+    <span
+      data-testid="message-streaming-spinner"
+      className={inline ? "ml-1 inline-flex h-5 w-5 translate-y-0.5 align-text-bottom items-center justify-center" : "flex h-5 w-5 items-center justify-center"}
+    >
       <motion.img
         src={PROVIDER_ICONS[provider]}
         alt=""
@@ -127,7 +132,7 @@ function ProviderSpinner({ provider }: { provider: Provider }) {
         animate={{ rotate: 360 }}
         transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
       />
-    </div>
+    </span>
   );
 }
 

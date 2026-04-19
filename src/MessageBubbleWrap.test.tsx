@@ -30,4 +30,19 @@ describe("MessageBubble wrapping", () => {
 
     expect(screen.getByText(/handoff\.txt/).className).toContain("message-bubble-wrap");
   });
+
+  it("replaces the streaming pipe with the provider spinner inline while text is streaming", () => {
+    const message: Message = {
+      id: "msg-3",
+      role: "assistant",
+      text: "Streaming reply",
+      streaming: true,
+      provider: "codex",
+    };
+
+    const { container } = render(<MessageBubble message={message} sessionProvider="codex" />);
+
+    expect(screen.getByTestId("message-streaming-spinner")).toBeTruthy();
+    expect(container.textContent).not.toContain("|");
+  });
 });

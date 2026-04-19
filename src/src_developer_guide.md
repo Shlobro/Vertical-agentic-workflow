@@ -22,7 +22,7 @@
 7. When the active project changes, `App.tsx` requests `list_project_files` from Tauri and passes the returned relative paths into `InputBar` for `@` completion.
 8. Sending a prompt writes optimistic user and assistant messages before calling Tauri with the selected chat and its parent project's working directory.
 9. A debounced save path invokes `save_workspace_state` after relevant project/chat changes, sidebar-ratio changes, text-zoom changes, companion-file default-selection changes, and remembered companion-template changes so project folders and the workspace registry stay synchronized with the in-memory store.
-10. Tauri events flow back into the same store to mutate the in-progress assistant message and session metadata.
+10. Tauri events flow back into the same store to mutate the in-progress assistant message and session metadata. Streaming assistant bubbles keep the provider spinner visible inline at the end of partial text until the final completion event lands.
 
 ## Guardrails
 - Keep `App.tsx` as orchestration glue, not a dumping ground for UI logic.

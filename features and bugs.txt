@@ -9,3 +9,5 @@ I had a chat running and even though it was not done the spinning logo on the si
 sometimes the model (i was using openAI when i noticed this) outputs in chunks. so it will output a section of something it is considering or doing. and then after the next thing it is doing. when this happens i want it in seperate paragraphs.
 
 need the ability to do some git actions and create a commit message
+
+on a laptop I want to be able to zoom in and out with the mouse pad. it should have the same behavior as CTRL + MOUSE WHEEL
